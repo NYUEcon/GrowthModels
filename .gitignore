@@ -1,0 +1,117 @@
+## C github template
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+
+## Python ignores
+*.pyc
+*.pyw
+*.so
+.ipynb_checkpoints/
+
+## LaTeX ignores
+*.fls
+*.acn
+*.acr
+*.alg
+*.aux
+*.bbl
+*.blg
+*.dvi
+*.fdb_latexmk
+*.glg
+*.glo
+*.gls
+*.idx
+*.ilg
+*.ind
+*.ist
+*.lof
+*.log
+*.lot
+*.maf
+*.mtc
+*.mtc0
+*.nav
+*.nlo
+*.out
+*.pdfsync
+*.ps
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+*.xdy
+*.tdo
+*.bcf
+*.run.xml
+*.eps
+*eps-converted-to.pdf
+
+## Markdown slide ignores
+*.pyg
+*.vrb
+
+## org-mode ignores
+*.html
+*~
+*#
+*.mm
+
+## Ignore binary data files
+*.h5
+*.jld
+*.mat
+
+## R
+*.Rproj.user
+*.Rhistory
+*.RData
+*.Rda
+*.Rhistory
+*.Rapp.history
+*-Ex.R
+*.Rproj.user/
+vignettes/*.html
+vignettes/*.pdf
+
+## Other
+*.DS_Store  # ignore osx fluff
+*_cache/
+*.sublime-workspace
+*.ptex
+*.msg
+*_files/
+Codebooks/
+space/quantmacro.egg-info/
+space/build/
+*.hi
+bin/
+*.tags*
