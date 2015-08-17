@@ -1,0 +1,75 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+
+% partial derivative as a fraction
+\newcommand{\fracpd}[2]{
+  \ensuremath{\frac{\partial #1}{\partial #2}}
+}
+
+
+\begin{document}
+
+% --------------------------------------- %
+% Section
+% --------------------------------------- %
+\section{Introduction}
+
+  This repository holds the solutions to a general set of growth models that incorporate the following explore the differences between
+
+  \begin{itemize}
+    \item One Agent vs Two Agent
+    \item One Good vs Two Goods
+    \item Time Additive Preferences vs Recursive Preferences
+    \item Constant Volatility vs Stochastic Volatility
+  \end{itemize}
+
+  By solve the 16 possible versions of this model, we are able to isolate the effects of each bell and whistle that we include in the model.
+
+% --------------------------------------- %
+% Section
+% --------------------------------------- %
+\section{One Agent One Good General Model}
+
+  We will write our one agent general unscaled model as the following:
+
+  \begin{align*}
+    J_t(k_t, x_t, v_t) &= \max_{k_{t+1}} \left[(1 - \beta) c_t^{\rho} + \beta \mu(J_{t+1}(k_{t+1}, x_{t+1}, v_{t+1}))^{\rho} \right]^{\frac1\rho} \\
+    \text{Subject To }& \\
+    c_t &= \left[ \eta k_{t}^{\nu} + (1 - \eta) z_t^{\nu} \right]^{\frac1\nu} + (1 - \delta) k_t - k_{t+1} \\
+    x_{t+1} &= A x_{t} + B v_t^{\frac{1}{2}} \varepsilon_{1, t+1} \\
+    v_{t+1} &= (1 - \phi_v) \bar{v} + \phi_v v_{t} + \tau \varepsilon_{2, t+1} \\
+    \log(z_t) &= \log(z_{t-1}) + \log(\bar{g}) + x_t
+  \end{align*}
+
+  We could then scale the model by dividing by $z_t$ to give us (will not both writing tildes for now -- everything here is divided by $z_t$)
+
+  \begin{align*}
+    J_t(k_t, x_t, v_t) &= \max_{\chi_{t}} \left[(1 - \beta) c_t^{\rho} + \beta \mu(J_{t+1}(k_{t+1}, x_{t+1}, v_{t+1}) g_{t+1})^{\rho} \right]^{\frac1\rho} \\
+    \text{Subject To }& \\
+    c_t &= \left[ \eta k_{t}^{\nu} + (1 - \eta) \right]^{\frac1\nu} + (1 - \delta) k_t - \chi_t \\
+    \chi_t &= k_{t+1} g_{t+1} \\
+    x_{t+1} &= A x_{t} + B v_{t}^{\frac{1}{2}} \varepsilon_{1, t+1} \\
+    v_{t+1} &= (1 - \phi_v) \bar{v} + \phi_v v_{t} + \tau \varepsilon_{2, t+1} \\
+    \log(g_t) &= \log(z_t) - \log(z_{t-1}) = \log(\bar{g}) + x_t
+  \end{align*}
+
+  Notice we can get constant volatility by allowing $\tau = \phi_v = 0$ or time separable preferences by $\rho = \alpha$.
+
+% --------------------------------------- %
+% Section
+% --------------------------------------- %
+\section{One Agent Two Goods General Model}
+
+% --------------------------------------- %
+% Section
+% --------------------------------------- %
+\section{Two Agent One Good General Model}
+
+% --------------------------------------- %
+% Section
+% --------------------------------------- %
+\section{Two Agent Two Goods General Model}
+
+
+\end{document}
