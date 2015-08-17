@@ -83,10 +83,10 @@ function envelope_method(nx=15, nk=35, nϵ1=5;maxiter=500, tol=1e-4)
 
         dist = maxabs(Jvals - Jupd)
         copy!(Jvals, Jupd)
-        Jspl = Spline2D(kgrid, xgrid, Jvals)
+        Jspl = Spline2D(kgrid, xgrid, Jvals; kx=1, ky=1, s=0.0)
         @show iter, dist
 
     end
 
-    return Jspl
+    return Jvals
 end
