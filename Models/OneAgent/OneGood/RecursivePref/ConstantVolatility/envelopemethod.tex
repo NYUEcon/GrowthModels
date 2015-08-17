@@ -1,0 +1,49 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+
+% partial derivative as a fraction
+\newcommand{\fracpd}[2]{
+  \ensuremath{\frac{\partial #1}{\partial #2}}
+}
+
+
+\begin{document}
+
+% --------------------------------------- %
+% Section
+% --------------------------------------- %
+\section{Envelope Method}
+  Original problem is
+
+  \begin{align*}
+    J_t(k_t, x_t) &= \max_{\chi_{t}} \left[(1 - \beta) c_t^{\rho} + \beta \mu(J_{t+1}(k_{t+1}, x_{t+1}) g_{t+1})^{\rho} \right]^{\frac1\rho} \\
+    \text{Subject To }& \\
+    c_t &= \left[ \eta k_{t}^{\nu} + (1 - \eta) \right]^{\frac1\nu} + (1 - \delta) k_t - \chi_t \\
+    \chi_t &= k_{t+1} g_{t+1} \\
+    x_{t+1} &= A x_{t} + B \bar{b}^{\frac{1}{2}} \varepsilon_{1, t+1} \\
+    \log(g_t) &= \log(z_t) - \log(z_{t-1}) = \log(\bar{g}) + x_t
+  \end{align*}
+
+  We can take first order conditions to get
+
+  \begin{align*}
+    (1 - \beta) c_t^{\rho - 1} &= \beta \mu(J_{t+1} g_{t+1})^{\rho - \alpha} E_t \left[ (g_{t+1} J_{t+1})^{\alpha - 1} \fracpd{J_{t+1}}{k_{t+1}} \right]
+  \end{align*}
+
+  The envelope condition reveals
+
+  \begin{align*}
+    \fracpd{J_t(k_t, x_t)}{k_t} &= J_t^{1 - \rho} (1 - \beta) c_t^{\rho - 1} (\eta y_t^{1 - \nu} k_t^{\nu - 1} + 1 - \delta)
+  \end{align*}
+
+  Notice for any pair $(k_t, x_t)$ we can solve the envelope condition to get
+
+  \begin{align*}
+    c_t &= \left( \frac{J_{k, t}(k_t, x_t)}{(1 - \beta) J_t^{1 - \rho} (\eta y_t^{1 - \nu} k_t^{\nu - 1} + 1 - \delta)} \right)^{\frac{1}{\rho - 1}} \\
+    \rightarrow \chi_t &= y_t + (1 - \delta) k_t - c_t \\
+    \chi_t &= y_t + (1 - \delta) k_t - \left( \frac{J_{k, t}(k_t, x_t)}{(1 - \beta) J_t^{1 - \rho} (\eta y_t^{1 - \nu} k_t^{\nu - 1} + 1 - \delta)} \right)^{\frac{1}{\rho - 1}} \\
+  \end{align*}
+
+
+\end{document}

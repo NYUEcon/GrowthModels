@@ -22,7 +22,7 @@ function envelope_method(nx=15, nk=35, nϵ1=5;maxiter=500, tol=1e-4)
     # Initialize the arrays
     ϵ, Π = qnwnorm(nϵ1, 0., 1.)
     xgrid = linspace(-.05, .05, nx)
-    kgrid = linspace(0., 55., nk)
+    kgrid = linspace(1e-8, 55., nk)
     xpgrid = Array(Float64, nshocks, nx)
     gpgrid = Array(Float64, nshocks, nx)
     for i=1:nx
@@ -88,5 +88,5 @@ function envelope_method(nx=15, nk=35, nϵ1=5;maxiter=500, tol=1e-4)
 
     end
 
-    return Jvals
+    return Jvals, χpolicy
 end
