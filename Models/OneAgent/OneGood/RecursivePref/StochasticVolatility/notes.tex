@@ -57,27 +57,27 @@ To deal with that last derivative in there we need an envelope condition. This c
 
 \begin{align} \label{eq:envelope}
   \fracpd{J(k,x,v)}{k} &= \frac{1}{\rho} J(k,x,v)^{1 - \rho} \rho (1 - \beta) c^{\rho - 1} (y^{1 - \nu} \omega k + 1 - \delta). \\
-  &= J(k,x,v)^{1 - \rho} (1 - \beta) c^{\rho - 1} (y(k)^{1 - \nu} \omega k + 1 - \delta)
+  &= J(k,x,v)^{1 - \rho} (1 - \beta) c^{\rho - 1} (y(k)^{1 - \nu} \omega k^{\nu-1} + 1 - \delta)
 \end{align}
 
 Iterating \eqref{eq:envelope} forward one period and combining with \eqref{eq:FOC_clean} yields (note I write just $\mu$ instead of $\mu(g' J'(\chi/g', x', v'))$, divide through by the $(1-\beta)$ on both sides, and combine terms where possible)
 
 \begin{align} \label{eq:residual_eqn}
-  c(k,\chi/g')^{\rho - 1} &= \beta \mu^{\rho- \alpha}E_t \left[ g'^{\alpha-1} J'(\chi_t/g', x', v')^{\alpha - \rho} c'(\chi/g',k'')^{\rho - 1} (y'(\chi/g')^{1 - \nu} \omega \chi/g' + 1 - \delta)  \right].
+  c(k,\chi/g')^{\rho - 1} &= \beta \mu^{\rho- \alpha}E_t \left[ g'^{\alpha-1} J'(\chi_t/g', x', v')^{\alpha - \rho} c'(\chi/g',k'')^{\rho - 1} (y'(\chi/g')^{1 - \nu} \omega (\chi/g')^{\nu - 1} + 1 - \delta)  \right].
 \end{align}
 
 We will work with the log of \eqref{eq:residual_eqn}:
 
 \begin{align} \label{eq:log_residual_eqn}
   &(\rho - 1)\log c(k,\chi/g') = \notag \\
-  & \qquad  \log \beta + (\rho-  \alpha) \log \mu + \log E_t \left[ g'^{\alpha-1} J'(\chi_t/g', x', v')^{\alpha - \rho} c'(\chi/g',k'')^{\rho - 1} (y'(\chi/g')^{1 - \nu} \omega \chi/g' + 1 - \delta)  \right].
+  & \qquad  \log \beta + (\rho-  \alpha) \log \mu + \log E_t \left[ g'^{\alpha-1} J'(\chi_t/g', x', v')^{\alpha - \rho} c'(\chi/g',k'')^{\rho - 1} (y'(\chi/g')^{1 - \nu} \omega (\chi/g')^{\nu - 1} + 1 - \delta)  \right].
 \end{align}
 
 
 Simplified version without showing what things are functions of
 
 \begin{align*}
-  (\rho - 1)\log c =\log \beta + (\rho-  \alpha) \log \mu + \log E_t \left[ g'^{\alpha-1} J'^{\alpha - \rho} c'^{\rho - 1} (y'^{1 - \nu} \omega \chi/g' + 1 - \delta)  \right].
+  (\rho - 1)\log c =\log \beta + (\rho-  \alpha) \log \mu + \log E_t \left[ g'^{\alpha-1} J'^{\alpha - \rho} c'^{\rho - 1} (y'^{1 - \nu} \omega (\chi/g')^{\nu - 1} + 1 - \delta)  \right].
 \end{align*}
 
 \section{ECM}
@@ -87,14 +87,14 @@ to our model. First we derive some equations. Starting from \eqref{eq:envelope},
 can solve for $c$:
 
 \begin{align} \label{eq:c_from_env}
-  c = \pfrac{\fracpd{J}{k}}{J^{1-\rho}(1 - \beta) (y^{1-\nu} \omega k + 1 - \delta)}^{\frac{1}{\rho-1}}.
+  c = \pfrac{\fracpd{J}{k}}{J^{1-\rho}(1 - \beta) (y^{1-\nu} \omega k^{\nu-1} + 1 - \delta)}^{\frac{1}{\rho-1}}.
 \end{align}
 
 We can then use the budget constraint to solve for $k'$:
 
 \begin{align}
   \label{eq:k_from_bc}
-  k' = \frac{1}{g'} \left( y + (1 - \delta)k -  \pfrac{\fracpd{J}{k}}{J^{1-\rho}(1 - \beta) (y^{1-\nu} \omega k + 1 - \delta)}^{\frac{1}{\rho-1}} \right)
+  k' = \frac{1}{g'} \left( y + (1 - \delta)k -  \pfrac{\fracpd{J}{k}}{J^{1-\rho}(1 - \beta) (y^{1-\nu} \omega k^{\nu-1} + 1 - \delta)}^{\frac{1}{\rho-1}} \right)
 \end{align}
 
 
@@ -103,7 +103,7 @@ an update rule for $\fracpd{J}{k}$:
 
 \begin{align}
   \label{eq:j_k_update}
-  \fracpd{J}{k} &= \beta J^{1-\rho} \mu^{\rho - \alpha} (y^{1-\nu} \omega k + 1 - \delta) E_t \left[ g'^{\alpha - 1}J'^{\alpha - 1} \fracpd{J'}{k'} \right]
+  \fracpd{J}{k} &= \beta J^{1-\rho} \mu^{\rho - \alpha} (y^{1-\nu} \omega k^{\nu-1} + 1 - \delta) E_t \left[ g'^{\alpha - 1}J'^{\alpha - 1} \fracpd{J'}{k'} \right]
 \end{align}
 
 An algorithm to apply the method is as follows
