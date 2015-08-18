@@ -91,7 +91,32 @@ end
 
 _Y(m, k) = (m.η*k.^(m.ν) + (1-m.η)).^(1/m.ν)
 
-function solve_ecm(m::BFZ; ξ::Float64=0.2, tol::Float64=1e-10, maxiter::Int=5000)
+function solve_this_state(m::BFZ, i::Int,  coefs::Vector, y::Real, j::Real,
+                          jk::Real, gp::Vector)
+    k, x, v = m.grid_transpose[:, i]
+    ρ, α, β = _unpack(m.agent)
+    ν, η, δ = m.ν, m.η, m.δ
+
+    N = length(gp)
+    jp = Array(Float64, N)
+
+    # solve for c and k'
+    c = (jk/(j^(1-ρ) * (1-β) * (y^(1-ν)*η*k^(ν-1) + 1 - δ))).^(1/(ρ - 1))
+    kp = (y + (1-δ)*k - c) ./ gp
+
+    # Now we need to update the value function. For this we will need
+    # to evaluate the spline again at k', x', v' and compute μ
+    for n=1:N
+        jp[n] = funeval(coefs, m.basis,
+                        [kp[n], m.exog.xp[n, i], m.exog.vp[n, i]])[1]
+    end
+    μ = dot((gp.*jp).^(α), m.exog.Π).^(1/α)
+    jm = ((1-β)*c^ρ + β*μ^ρ)^(1/ρ)
+
+    return jm
+end
+
+function solve_ecm(m::BFZ; ξ::Float64=0.4, tol::Float64=1e-10, maxiter::Int=5000)
     # initialize J
     ρ, α, β = _unpack(m.agent)
     ν, η, δ = m.ν, m.η, m.δ
@@ -107,38 +132,23 @@ function solve_ecm(m::BFZ; ξ::Float64=0.2, tol::Float64=1e-10, maxiter::Int=500
     err = 1.0
     it = 0
 
-    jp = Array(Float64, N)
     jm = similar(jm_old)
     y_all = _Y(m, m.grid[:, 1])
-
 
     while err > tol && it < maxiter
         it += 1
         # compute J at each state
         J = funeval(coefs, m.basis_struc, [0 0 0])
         J_k = funeval(coefs, J_k_basis_struc, [1 0 0])
-        for i=1:M
-            # extract state and J(m), J_k(m)
-            k, x, v = m.grid_transpose[:, i]
-            j = J[i]
-            jk = J_k[i]
-            y = y_all[i]
-            gp = m.exog.gp[:, i]
 
-            # solve for c and k'
-            c = (jk/(j^(1-ρ) * (1-β) * (y^(1-ν)*η*k^(ν-1) + 1 - δ))).^(1/(ρ - 1))
-            kp = (y + (1-δ)*k - c) ./ gp
+        # solve at each state in parallel
+        ssi(i) = solve_this_state(m, i, coefs, y_all[i], J[i], J_k[i],
+                                  m.exog.gp[:, i])
+        jm = pmap(ssi, 1:M)
 
-            # Now we need to update the value function. For this we will need
-            # to evaluate the spline again at k', x', v' and compute μ
-            for n=1:N
-                jp[n] = funeval(coefs, m.basis,
-                                [kp[n], m.exog.xp[n, i], m.exog.vp[n, i]])[1]
-            end
-            μ = dot((gp.*jp).^(α), m.exog.Π).^(1/α)
-            jm[i] = ((1-β)*c^ρ + β*μ^ρ)^(1/ρ)
+        # make sure we have jm::Vector{Float64}
+        jm = Float64[i for i in jm]
 
-        end
         # now let's get ourselves a new coefficient vector
         coef_hat = funfitxy(m.basis, m.basis_struc, jm)[1]
         coefs = (1-ξ)*coef_hat + ξ*coefs
@@ -148,6 +158,12 @@ function solve_ecm(m::BFZ; ξ::Float64=0.2, tol::Float64=1e-10, maxiter::Int=500
         @show it, err
 
     end
+    return jm
+end
+
+function main()
+    m = BFZ()
+    solve_ecm(m)
 end
 
 end  # module
