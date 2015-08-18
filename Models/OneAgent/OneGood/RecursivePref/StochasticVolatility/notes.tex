@@ -1,0 +1,157 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+
+% partial derivative as a fraction
+\newcommand{\fracpd}[2]{
+  \ensuremath{\frac{\partial #1}{\partial #2}}
+}
+
+% fraction with parenthesis around it
+\newcommand{\pfrac}[2]{
+  \ensuremath{ \left( \frac{#1}{#2} \right)}
+}
+
+
+
+\begin{document}
+
+\section{Model}
+
+Writing the model in scaled form (note I'm dropping the tilde's -- all appropriate variables implicitly have them)
+
+\begin{align*}
+  j(k, x, v) &= \max_{\chi \equiv k'g'} \left[ (1 - \beta) \left\{ y(k) + (1 - \delta)k - \chi \right\}^{\rho} + \beta E_t \left\{g'^{\alpha} J'(\chi/g', x', v')^{\alpha} \right\}^{\frac{\rho}{\alpha}} \right]^{1/\rho} \\
+  s.t. \quad & x' = A x +  B v^{1/2} \epsilon_1' \\
+  & v' = (1 - \varphi_v) \bar{v} + \varphi v+  \tau \epsilon_2'
+\end{align*}
+
+Then the FONC wrt to $\chi$ is
+
+\begin{align*}
+  \fracpd{j_t}{\chi_t} &= \frac{1}{\rho} j_{t}^{1 -  \rho} \left( (1 - \beta) \rho c_t^{\rho - 1} \fracpd{c_t}{\chi_t} + \beta \fracpd{E_t \left[ g_{t+1}^{\alpha}(x_{t+1}, v_{t+1}) J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})^{\alpha} \right]^{\frac{\rho}{\alpha}}}{\chi_t} \right)
+\end{align*}
+
+Then
+
+% you can also try \tiny if \small isn't small enough
+\begin{align*}
+  &\fracpd{c_{t}}{\chi_t} = -1 \\
+  &\fracpd{E_t \left[ g_{t+1}^{\alpha}(x_{t+1}, v_{t+1}) J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})^{\alpha} \right]^{\frac{\rho}{\alpha}}}{\chi_t} \\&= \frac{\rho}{\alpha} E_t \left[ g_{t+1}(x_{t+1}, v_{t+1})^{\alpha} J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})^{\alpha} \right]^{\frac{\rho - \alpha}{\alpha}} \fracpd{E_t\left[ g_{t+1}(x_{t+1}, v_{t+1})^{\alpha} J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})^{\alpha} \right]}{\chi_t} \\
+  &\fracpd{E_t\left[ g_{t+1}(x_{t+1}, v_{t+1})^{\alpha} J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})^{\alpha} \right]}{\chi_t} \\&= E_t \left[ g_{t+1}(x_{t+1}, v_{t+1})^{\alpha} \alpha J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})^{\alpha - 1} \underbrace{\fracpd{J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})}{k_{t+1}} \frac{1}{g_{t+1}}}_{\fracpd{J_{t+1}}{\chi_t}} \right]
+\end{align*}
+
+Putting this together reveals
+
+\begin{align*}
+  &(1 - \beta) c_{t}^{\rho - 1} \\&= \beta E_t \left[ g_{t+1}(x_{t+1}, v_{t+1})^{\alpha} J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})^{\alpha} \right]^{\frac{\rho - \alpha}{\alpha}} \\&E_t \left[ g_{t+1}(x_{t+1}, v_{t+1})^{\alpha} J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})^{\alpha - 1} \fracpd{J_{t+1}(\chi_t/g_{t+1}, x_{t+1}, v_{t+1})}{k_{t+1}} \frac{1}{g_{t+1}} \right]
+\end{align*}
+
+Now let a $\cdot'$ stand for  $\cdot_{t+1}$ and re-write this condition as:
+
+\begin{align} \label{eq:FOC_clean}
+  (1 - \beta) c(k,k')^{\rho - 1} &= \beta \mu\left(g'J'(\chi/g',x',v')\right)^{\rho- \alpha}E_t \left[ g'^{\alpha-1} J'(\chi_t/g', x', v')^{\alpha - 1} \fracpd{J'(\chi_t/g', x', v')}{k'} \right].
+\end{align}
+
+To deal with that last derivative in there we need an envelope condition. This condition is
+
+\begin{align} \label{eq:envelope}
+  \fracpd{J(k,x,v)}{k} &= \frac{1}{\rho} J(k,x,v)^{1 - \rho} \rho (1 - \beta) c^{\rho - 1} (y^{1 - \nu} \omega k + 1 - \delta). \\
+  &= J(k,x,v)^{1 - \rho} (1 - \beta) c^{\rho - 1} (y(k)^{1 - \nu} \omega k + 1 - \delta)
+\end{align}
+
+Iterating \eqref{eq:envelope} forward one period and combining with \eqref{eq:FOC_clean} yields (note I write just $\mu$ instead of $\mu(g' J'(\chi/g', x', v'))$, divide through by the $(1-\beta)$ on both sides, and combine terms where possible)
+
+\begin{align} \label{eq:residual_eqn}
+  c(k,\chi/g')^{\rho - 1} &= \beta \mu^{\rho- \alpha}E_t \left[ g'^{\alpha-1} J'(\chi_t/g', x', v')^{\alpha - \rho} c'(\chi/g',k'')^{\rho - 1} (y'(\chi/g')^{1 - \nu} \omega \chi/g' + 1 - \delta)  \right].
+\end{align}
+
+We will work with the log of \eqref{eq:residual_eqn}:
+
+\begin{align} \label{eq:log_residual_eqn}
+  &(\rho - 1)\log c(k,\chi/g') = \notag \\
+  & \qquad  \log \beta + (\rho-  \alpha) \log \mu + \log E_t \left[ g'^{\alpha-1} J'(\chi_t/g', x', v')^{\alpha - \rho} c'(\chi/g',k'')^{\rho - 1} (y'(\chi/g')^{1 - \nu} \omega \chi/g' + 1 - \delta)  \right].
+\end{align}
+
+
+Simplified version without showing what things are functions of
+
+\begin{align*}
+  (\rho - 1)\log c =\log \beta + (\rho-  \alpha) \log \mu + \log E_t \left[ g'^{\alpha-1} J'^{\alpha - \rho} c'^{\rho - 1} (y'^{1 - \nu} \omega \chi/g' + 1 - \delta)  \right].
+\end{align*}
+
+\section{ECM}
+
+We now describe a version of the envelope condition method that can be applied
+to our model. First we derive some equations. Starting from \eqref{eq:envelope}, we
+can solve for $c$:
+
+\begin{align} \label{eq:c_from_env}
+  c = \pfrac{\fracpd{J}{k}}{J^{1-\rho}(1 - \beta) (y^{1-\nu} \omega k + 1 - \delta)}^{\frac{1}{\rho-1}}.
+\end{align}
+
+We can then use the budget constraint to solve for $k'$:
+
+\begin{align}
+  \label{eq:k_from_bc}
+  k' = \frac{1}{g'} \left( y + (1 - \delta)k -  \pfrac{\fracpd{J}{k}}{J^{1-\rho}(1 - \beta) (y^{1-\nu} \omega k + 1 - \delta)}^{\frac{1}{\rho-1}} \right)
+\end{align}
+
+
+Finally, we can combine \eqref{eq:FOC_clean} with \eqref{eq:envelope} to derive
+an update rule for $\fracpd{J}{k}$:
+
+\begin{align}
+  \label{eq:j_k_update}
+  \fracpd{J}{k} &= \beta J^{1-\rho} \mu^{\rho - \alpha} (y^{1-\nu} \omega k + 1 - \delta) E_t \left[ g'^{\alpha - 1}J'^{\alpha - 1} \fracpd{J'}{k'} \right]
+\end{align}
+
+An algorithm to apply the method is as follows
+
+\begin{enumerate}
+\item Initialization:
+  \begin{itemize}
+  \item Choose parameter values
+  \item Choose uni-variate grids for $k$, $x$, and $v$
+  \item Expand the grids into a $M:=n_k*n_x*n_v \times 3$ matrix $\Gamma$
+  \item Choose an integration method and construct a $N \times 2$
+    matrix of integration nodes $\epsilon$ as well as a $N$ element
+    probability vector $\Pi$.
+  \item Let $x_m$ and $v_m$ represent the second and third columns of the $m$th
+    row of $\Gamma$. Then let $\epsilon_{1n}$ and $\epsilon_{2n}$ be the first
+    and second columns of the $n$th row of $\epsilon$. Then, for $m=1 \dots M$
+    and $n=1 \dots N$, compute $x'_{mn} = A x_m + B v_m^{1/2}
+    \epsilon_{1n}$ and $v'_{mn} = (1 - \varphi) \bar{v} + \varphi v_m + \tau \epsilon_{2,n}$.
+  \item For $m=1 \dots M$ and $n = 1 \dots N$ compute $g'_{mn} = \bar{g} exp(x'_{mn})$.
+  \item Choose a functional form for representing the derivative of the value
+    function $J_k(k, x, v; b)$ and make an initial guess for the coefficient
+    vector $\beta$
+  \end{itemize}
+\item At iteration $i$ for $m = 1 \dots M$
+  \begin{enumerate}
+  \item Use \eqref{eq:c_from_env} to solve for $c_m$
+  \item Use $c_m$ and \eqref{eq:k_from_bc} to solve for $k'_{mn}$ for each $n=1
+    \dots m$.
+  \item Use \eqref{eq:j_k_update} to solve for the derivative of $J$ on grid.
+    Call the left-hand-side $d_m$
+  \end{enumerate}
+\item Run a regression and convex combination to update the coefficient vector $b$
+  \begin{itemize}
+  \item This means compute $\hat{b} = \hat{V}(k_m, x_m, v_m; b) \backslash d_m$, where
+    $\hat{V}(k_m, x_m, v_m; b)$ is the $M \times nf$ basis matrix for the chosen
+    form of approximating function that has $nf$ terms.
+  \item With $\hat{b}$ in hand we then form a convex combination between
+    $\hat{b}$ and the existing $b$ to form the new coefficient vector: $b =(1 -
+    \xi) \hat{b} +  \xi b$
+  \end{itemize}
+\item Check convergence by computing $err = \frac{1}{M} \sum_{m=1}^M \left|
+    \frac{c_m^{(i+1)} - c_m^{(i)}}{c_m^{(i)}}\right|$, where $c_m^{(i)}$ is the
+  $c_m$ computed in step 2.a on the $i$th iteration of the algorithm. If $err <
+  $ some predefined tolerance, stop. Otherwise start over at step 2 with the
+  updated coefficient vector.
+\end{enumerate}
+
+
+
+
+\end{document}
