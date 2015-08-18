@@ -10,19 +10,20 @@ function envelope_method(nx=15, nk=35, nϵ1=5;maxiter=500, tol=1e-4)
     iter = 1
 
     # Model Parameters
-    A, B, vbar, lgbar = 0., 1., .015.^2, .004
+    A, B, vbar, lgbar = 0.0, 1., .015.^2, .004
     ρ, α, β = -1., -9., .99
-    η, ν, δ = .33, .25, .025
+    η, ν, δ = .33, .01, .025
     νinv, ρinv, αinv = 1/ν, 1/ρ, 1/α
 
     # Create some basic functions
     _Y(k) = (η .* k.^ν + (1 - η)).^(νinv)
+    # _Y(k) = k.^η
 
 
     # Initialize the arrays
     ϵ, Π = qnwnorm(nϵ1, 0., 1.)
     xgrid = linspace(-.05, .05, nx)
-    kgrid = linspace(1e-8, 55., nk)
+    kgrid = linspace(1e-2, 55., nk)
     xpgrid = Array(Float64, nshocks, nx)
     gpgrid = Array(Float64, nshocks, nx)
     for i=1:nx
@@ -61,10 +62,12 @@ function envelope_method(nx=15, nk=35, nϵ1=5;maxiter=500, tol=1e-4)
                 # Get the pieces that we care about
                 yt = _Y(kt)
                 dJ_k = derivative(Jkspl, kt)
-                dJ_k = dJ_k < 1e-12 ? 0. : dJ_k
                 Jt = evaluate(Jspl, kt, xt)
                 ct = (dJ_k/((1-β)*Jt^(1-ρ)*(yt^(1-ν)*η*kt^(ν-1)+1-δ)))^(1./(ρ-1))
                 χt = yt + (1 - δ)*kt - ct
+                if χt < 0
+                    warn("Negative chi")
+                end
                 χpolicy[kind, xind] = χt
                 expterm = 0.
 
@@ -72,7 +75,7 @@ function envelope_method(nx=15, nk=35, nϵ1=5;maxiter=500, tol=1e-4)
                     xtp1 = xpgrid[shockind, xind]
                     gtp1 = gpgrid[shockind, xind]
                     jtp1 = evaluate(Jspl, χt/gtp1, xtp1)
-                    expterm += (jtp1 * gtp1)^α
+                    expterm += (jtp1 * gtp1)^α * Π[shockind]
                 end
                 μ = expterm^αinv
 
