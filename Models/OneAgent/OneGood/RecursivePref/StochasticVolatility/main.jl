@@ -71,7 +71,7 @@ function BFZ(;ρ::Real=-1, α::Real=-9, β::Real=0.99,
               nk::Int=20, nx::Int=8, nv::Int=8, nϵ1::Int=3, nϵ2::Int=3)
 
     basis = Basis(SplineParams(collect(linspace(25.0, 50.0, nk)), 0, 3),
-                  SplineParams(collect(linspace(-.06, .06, nx)), 0, 1),
+                  SplineParams(collect(linspace(-.04, .04, nx)), 0, 1),
                   SplineParams(collect(linspace(1e-4, 4e-4, nv)), 0, 1))
 
     grid = nodes(basis)[1]
@@ -126,7 +126,7 @@ function solve_ecm(m::BFZ; ξ::Float64=0.2, tol::Float64=1e-10, maxiter::Int=500
             gp = m.exog.gp[:, i]
 
             # solve for c and k'
-            c = (jk/(j^(1-ρ) * (1-β) * (y^(1-ν)*η*k + 1 - δ))).^(1/(ρ - 1))
+            c = (jk/(j^(1-ρ) * (1-β) * (y^(1-ν)*η*k^(ν-1) + 1 - δ))).^(1/(ρ - 1))
             kp = (y + (1-δ)*k - c) ./ gp
 
             # Now we need to update the value function. For this we will need
