@@ -51,23 +51,22 @@ end
 # ----- #
 # Model #
 # ----- #
-immutable BFZ{BST}
+immutable BFZ
     agent::Agent
     η::Float64
     ν::Float64
     δ::Float64
     grid::Matrix{Float64}
     grid_transpose::Matrix{Float64}  # for iterating state by state over cols
-    dim_map::Dict{Symbol,Int}
     basis::Basis{3}
-    basis_struc::BasisStructure{BST}
+    basis_struc::BasisStructure
     exog::Exog
 end
 
-function BFZ(;ρ::Real=-1, α::Real=-9, β::Real=0.99,
+function BFZ(;ρ::Real=-1, α::Real=-9, β::Real=0.9995,
               η::Real=1/3, ν::Float64=0.1, δ::Real=0.025,
               lgbar::Real=0.004, e::Real=1.0, A::Real=0., B::Real=1.,
-              vbar::Real=0.015^2, φv::Real=0.95, τ::Real=0.74e-5,
+              vbar::Real=0.01^2, φv::Real=0.975, τ::Real=(vbar/3)*sqrt(1-φv^2),
               nk::Int=20, nx::Int=8, nv::Int=8, nϵ1::Int=3, nϵ2::Int=3)
 
     basis = Basis(SplineParams(collect(linspace(25.0, 50.0, nk)), 0, 3),
@@ -83,37 +82,45 @@ function BFZ(;ρ::Real=-1, α::Real=-9, β::Real=0.99,
     # Create the agent
     agent = Agent(ρ, α, β)
 
-    dim_map = Dict(zip([:k, :x, :v], 1:3))
+    # special case for ν. Make sure it isn't negative and then clamp it to be no
+    # smaller than 1e-6. ν=0 ⟶ production is cobb-Douglass. Numerically we can't
+    # let ν=0, but if we set it very close to zero then we approximate
+    # Cobb-Douglass really well. With some testing I found 1e-8 was optimal
+    ν < 0 && throw(ArgumentError("ν cannot be negative"))
+    ν = clamp(ν, 1e-8, Inf)
 
     # package everything up and return
-    BFZ(agent, η, ν, δ, grid, grid', dim_map, basis, basis_struc, exog)
+    BFZ(agent, η, ν, δ, grid, grid', basis, basis_struc, exog)
 end
 
 _Y(m, k) = (m.η*k.^(m.ν) + (1-m.η)).^(1/m.ν)
 
-function solve_this_state(m::BFZ, i::Int,  coefs::Vector, y::Real, j::Real,
-                          jk::Real, gp::Vector)
+function solve_this_state(m::BFZ, i::Int, xv_mat::AbstractMatrix, coefs::Vector,
+                          y::Real, j::Real, jk::Real, gp::Vector)
     k, x, v = m.grid_transpose[:, i]
     ρ, α, β = _unpack(m.agent)
     ν, η, δ = m.ν, m.η, m.δ
 
     N = length(gp)
-    jp = Array(Float64, N)
 
     # solve for c and k'
     c = (jk/(j^(1-ρ) * (1-β) * (y^(1-ν)*η*k^(ν-1) + 1 - δ))).^(1/(ρ - 1))
     kp = (y + (1-δ)*k - c) ./ gp
 
-    # Now we need to update the value function. For this we will need
-    # to evaluate the spline again at k', x', v' and compute μ
-    for n=1:N
-        jp[n] = funeval(coefs, m.basis,
-                        [kp[n], m.exog.xp[n, i], m.exog.vp[n, i]])[1]
-    end
+    # compute j' to evaluate μ
+    kp_basis_mat = CompEcon.evalbase(m.basis.params[1], kp, 0)[1]
+    jp = CompEcon.row_kron(xv_mat, kp_basis_mat) * coefs
+
     μ = dot((gp.*jp).^(α), m.exog.Π).^(1/α)
     jm = ((1-β)*c^ρ + β*μ^ρ)^(1/ρ)
 
-    return jm
+    return jm, c, kp
+end
+
+function basis_mat_xv(m::BFZ, x::Vector, v::Vector)
+    mat_v = CompEcon.evalbase(m.basis.params[3], v, 0)[1]
+    mat_x = CompEcon.evalbase(m.basis.params[2], x, 0)[1]
+    CompEcon.row_kron(mat_v, mat_x)
 end
 
 function solve_ecm(m::BFZ; ξ::Float64=0.4, tol::Float64=1e-10, maxiter::Int=5000)
@@ -129,12 +136,14 @@ function solve_ecm(m::BFZ; ξ::Float64=0.4, tol::Float64=1e-10, maxiter::Int=500
     J_k_basis_struc = BasisStructure(m.basis, Direct(),
                                      nodes(m.basis)[1], [1 0 0])
 
+    xv_mats = [basis_mat_xv(m, m.exog.xp[:, i], m.exog.vp[:, i]) for i=1:M]
     err = 1.0
     it = 0
 
     jm = similar(jm_old)
     y_all = _Y(m, m.grid[:, 1])
 
+    local out  # declare out local so we can return it after the loop
     while err > tol && it < maxiter
         it += 1
         # compute J at each state
@@ -142,12 +151,12 @@ function solve_ecm(m::BFZ; ξ::Float64=0.4, tol::Float64=1e-10, maxiter::Int=500
         J_k = funeval(coefs, J_k_basis_struc, [1 0 0])
 
         # solve at each state in parallel
-        ssi(i) = solve_this_state(m, i, coefs, y_all[i], J[i], J_k[i],
-                                  m.exog.gp[:, i])
-        jm = pmap(ssi, 1:M)
+        ssi(i) = solve_this_state(m, i, xv_mats[i], coefs, y_all[i], J[i],
+                                  J_k[i], m.exog.gp[:, i])
+        out = map(ssi, 1:M)
 
         # make sure we have jm::Vector{Float64}
-        jm = Float64[i for i in jm]
+        jm = Float64[i[1] for i in out]
 
         # now let's get ourselves a new coefficient vector
         coef_hat = funfitxy(m.basis, m.basis_struc, jm)[1]
@@ -158,7 +167,7 @@ function solve_ecm(m::BFZ; ξ::Float64=0.4, tol::Float64=1e-10, maxiter::Int=500
         @show it, err
 
     end
-    return jm
+    return coefs, out
 end
 
 function main()
