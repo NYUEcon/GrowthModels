@@ -46,6 +46,19 @@ function plot(coefs; trans=(x,y)->(x.^(m.agent.ρ-1).*y),
 
 end
 
+function plot_kapitalratio(m::BFZ, coefs::Vector{Float64, 1}, pol::Vector{Float64, 1})
+
+    # Take the solution to the model and get relevant info
+    c = [float64(stuff[2]) for stuff in pol]
+    c_coefs, x, v, c_sim, k_sim, y_sim = X.simulate_solution(m, coefs, c)
+
+    fig, ax = subplots()
+    ax[:hist](k_sim ./ y_sim)
+    ax[:set_title]("Capital to Income Ratio")
+    fig[:savefig]("figures/rho_alpha_m9/capital")
+
+end
+
 function main()
     coefs_c = get_coefs(m.basis, m.basis_struc, c)
     plot(coefs, fn_suffix="1")
