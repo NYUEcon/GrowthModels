@@ -1,6 +1,21 @@
 module X
 
+using JLD
 using CompEcon
+
+const DATA_FILE = "bfz_output.jld"
+
+if !isfile(DATA_FILE)
+    f = jldopen(DATA_FILE, "w")
+
+    # create model map
+    mm = Dict{NTuple{12,Float64}, Int}()
+    write(f, "model_map", mm)
+
+    # close the file
+    close(f)
+end
+
 
 immutable EZAgent
     ρ::Float64
@@ -69,7 +84,6 @@ function simulate(ex::Exog; T::Int=25_000, v0::Float64=0.001, x0::Float64=0.0)
     x, v
 end
 
-
 # ----- #
 # Model #
 # ----- #
@@ -115,6 +129,11 @@ function BFZ(;ρ::Real=-1, α::Real=-9, β::Real=0.9995,
     # package everything up and return
     BFZ(agent, η, ν, δ, grid, grid', basis, basis_struc, exog)
 end
+
+_params(m::BFZ) = (m.agent.ρ, m.agent.α, m.agent.β, m.ν, m.η, m.δ, m.exog.lgbar,
+                   m.exog.A, m.exog.B, m.exog.vbar, m.exog.φᵥ, m.exog.τ)
+
+const DEFAULT_PARAMS = _params(BFZ())
 
 function Base.writemime(io::IO, ::MIME"text/plain", m::BFZ)
     m = """\
@@ -168,6 +187,36 @@ function basis_mat_xv(m::BFZ, x::Vector, v::Vector)
     CompEcon.row_kron(mat_v, mat_x)::typeof(mat_v)
 end
 
+function solve(m::BFZ, re_compute::Bool=false; kwargs...)
+    jldopen(DATA_FILE, "r+") do f
+        model_map = read(f, "model_map")
+        the_params = _params(m)
+
+        if haskey(model_map, the_params) && !re_compute
+            grp_key = model_map[the_params]
+            grp = f[string(grp_key)]
+            coefs = read(grp, "coefs")
+            j = read(grp, "j")
+            c = read(grp, "c")
+            kp = read(grp, "kp")
+            println("Returning cached solution")
+        else
+            if haskey(model_map, the_params)
+                # delete the group so we can re-compute
+                delete!(f, "$(model_map[the_params])")
+            end
+            coefs, j, c, kp = solve_ecm(m; kwargs...)
+            grp_key = length(model_map) > 0 ? maximum(values(model_map)) + 1 : 1
+            for (nm, val) in zip([:j, :coefs, :c, :kp], (j, coefs, c, kp))
+                write(f, "$grp_key/$nm", val)
+            end
+            model_map[the_params] = grp_key
+        end
+
+        coefs, j, c, kp, grp_key
+    end
+end
+
 function solve_ecm(m::BFZ; ξ::Float64=0.4, tol::Float64=1e-10, maxiter::Int=5000)
     # initialize J
     ρ, α, β = _unpack(m.agent)
@@ -212,12 +261,13 @@ function solve_ecm(m::BFZ; ξ::Float64=0.4, tol::Float64=1e-10, maxiter::Int=500
         @show it, err
 
     end
-    return coefs, out
-end
 
-function main()
-    m = BFZ()
-    solve_ecm(m)
+    # extract solution
+    j = Float64[i[1] for i in out]
+    c = Float64[i[2] for i in out]
+    kp = hcat(Vector{Float64}[i[3] for i in out]...)
+
+    return coefs, j, c, kp
 end
 
 function simulate_solution(m::BFZ, coefs::Vector, c::Vector; T::Int=75_000,
@@ -242,7 +292,6 @@ function simulate_solution(m::BFZ, coefs::Vector, c::Vector; T::Int=75_000,
     @inbounds for t=1:T-1
         c_sim[t] = funeval(c_coefs, m.basis, [k_sim[t] x[t] v[t]])[1]
         gp = gbar*exp(x[t+1])
-        @show t, k_sim[t], x[t], v[t]
         y_sim[t] = _Y(m, k_sim[t])
         k_sim[t+1] = (y_sim[t] + (1-m.δ)*k_sim[t] - c_sim[t]) / gp
     end
@@ -290,5 +339,9 @@ function euler_errors_sim(m::BFZ, coefs::Vector, c_coefs::Vector, x_sim, v_sim,
     err_sim
 end
 
+function main()
+    m = BFZ()
+    solve(m)
+end
 
 end  # module
