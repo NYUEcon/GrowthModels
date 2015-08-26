@@ -22,7 +22,7 @@
 
   \begin{align*}
     J(k_1, k_2, z_1, z_2, U) &= \max_{c_1, c_2, I_1, I_2, U'} \left[ (1 - \beta_1) c_1^{\rho_1} + \beta_1 \mu(J')^\rho \right]^{\frac{1}{\rho_1}} \\
-    \text{subject to }& \left[ (1 - \beta_2) c_2^{\rho_2} + \beta_2 \mu(U')^\rho \right]^{\frac{1}{\rho_2}} \\
+    \text{subject to }& \left[ (1 - \beta_2) c_2^{\rho_2} + \beta_2 \mu(U')^\rho \right]^{\frac{1}{\rho_2}} \ge U \\
     c_1 + c_2 + I_1 + I_2 &= f_1(k_1, z_1) + f_2(k_2, z_2) \\
     k_1' &= \Gamma_1(k_1, I_1) \\
     k_2' &= \Gamma_2(k_2, I_2) \\
@@ -39,11 +39,11 @@
 
   Note: For $\gamma_i = 1$ and $I_i = 0$ that we get $k_{t+1} = (1 - \delta) k_t$ which is the standard rate of depreciation.
 
-  If we then scale the model by $z_1$, we get\footnote{I'm going to use same variable names, but everything in site is scaled by $z_1$}
+  If we then scale the model by $z_1$ and define $\xi := \frac{z_2}{z_1}$, we get\footnote{I'm going to use same variable names, but everything in sight is scaled by $z_1$}
 
   \begin{align*}
     J(k_1, k_2, \xi, U) &= \max_{c_1, c_2, I_1, I_2, U'} \left[ (1 - \beta_1) c_1^{\rho_1} + \beta_1 \mu(g' J')^\rho \right]^{\frac{1}{\rho_1}} \\
-    \text{subject to }& \left[ (1 - \beta_2) c_2^{\rho_2} + \beta_2 \mu(g' U')^\rho \right]^{\frac{1}{\rho_2}} \quad (\lambda_P) \\
+    \text{subject to }& \left[ (1 - \beta_2) c_2^{\rho_2} + \beta_2 \mu(g' U')^\rho \right]^{\frac{1}{\rho_2}} \ge U \quad (\lambda_P) \\
     c_1 + c_2 + I_1 + I_2 &= f_1(k_1) + f_2(k_2, \xi) \quad (\lambda_{BC}) \\
     g' k_1' &= \Gamma_1(k_1, I_1) \quad (\lambda_1) \\
     g' k_2' &= \Gamma_2(k_2, I_2) \quad (\lambda_2) \\
@@ -53,14 +53,39 @@
 \section{First Order Conditions}
 
   \begin{align*}
-    c_1 &: J^{1 - \rho_1} (1 - \beta_1) c_1^{\rho_1 - 1} + \lambda_{BC} = 0 \\
-    c_2 &: U^{1 - \rho_2} (1 - \beta_2) c_2^{\rho_2 - 1} + \lambda_{BC} = 0 \\
-    I_1 &: J^{1 - \rho_1} \beta_1 \mu_1(g' J')^{\rho - 1} (...) + \text{...} \\
-    I_2 &: U^{1 - \rho_2}
+    c_1 &: J^{1 - \rho_1} (1 - \beta_1) c_1^{\rho_1 - 1} - \lambda_{BC} = 0 \\
+    c_2 &: \lambda_p U^{1 - \rho_2} (1 - \beta_2) c_2^{\rho_2 - 1} - \lambda_{BC} = 0 \\
+    I_1 &: J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_1}{I_1} J'_{k_1} \right] - \lambda_{BC} = 0 \\
+    I_2 &: J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_2}{I_2} J'_{k_2} \right] - \lambda_{BC} = 0 \\
+    U'(\text{state}') &: \lambda_p U^{1 - \rho_2} \beta_2 E \left[ (g'U')^{\alpha_2} \right]^{\frac{\rho_2 - \alpha_2}{\alpha_2}} g'^{\alpha_2} U'^{\alpha_2 - 1} + J^{1 - \rho_1} \beta_1 E \left[ (g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} g'^{\alpha_1}J'^{\alpha_1 -1}J'_{u} = 0
   \end{align*}
 
 
+\section{Envelope Condition}
 
+\begin{align*}
+  J_U &= - \lambda_p \\
+  J_{k1} &= \fracpd{f_1}{k_1} \lambda_{BC} +  J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_1}{k_1} J'_{k_1} \right] \\
+  J_{k2} &= \fracpd{f_2}{k_2} \lambda_{BC} +  J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_2}{k_2} J'_{k_2} \right]
+\end{align*}
+
+\section{ECM}
+
+We will use the FOC in $c_1$ and $c_2$ together with the envelope for $J_{k_1}$
+and $J_{k_2}$ to solve for the optimal $c_1,c_2$ in closed form:
+
+\begin{align*}
+  c_1 &= \left( \frac{J_{k_1} - J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_1}{k_1} J'_{k_1} \right]}{J^{1-\rho_1} \fracpd{f_1}{k_1} (1 - \beta_1)} \right)^{\frac{1}{\rho_1 - 1}} \\
+   c_2 &= \left( \frac{J_{k_2} - J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_2}{k_2} J'_{k_2} \right]}{\lambda_p  U^{1-\rho_2} \fracpd{f_2}{k_2} (1 - \beta_2)} \right)^{\frac{1}{\rho_2 - 1}} \\
+\end{align*}
+
+
+Or we could use FOC $c_1$ and env $J_{k_1}$ to get the same $c_1$ as above and
+use FOC $c_1$ with FOC $c_2$ to get $c_2$:
+
+\begin{align*}
+  c_2 &= \left( \frac{\lambda_p U^{1-\rho_2}(1 - \beta_2)}{J^{1-\rho_1} (1 - \beta_1)c_1^{\rho_1 - 1}} \right)^{\frac{1}{\rho_2-1}}
+\end{align*}
 
 
 \end{document}
