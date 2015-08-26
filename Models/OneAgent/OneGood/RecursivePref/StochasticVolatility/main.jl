@@ -1,5 +1,9 @@
 module X
 
+# TODO: add Solution type that keeps the stuff we are currently returning as
+# well as other info such as execution time, versioninfo() stats, date/time of
+# computation ect.
+
 using JLD
 using CompEcon
 
@@ -130,6 +134,11 @@ function BFZ(;ρ::Real=-1, α::Real=-9, β::Real=0.9995,
     BFZ(agent, η, ν, δ, grid, grid', basis, basis_struc, exog)
 end
 
+function BFZ(params::NTuple{12,Float64})
+    ρ, α, β, ν, η, δ, lgbar, A, B, vbar, φᵥ, τ = params
+    BFZ(ρ=ρ, α=α, β=β, ν=ν, η=η, δ=δ, lgbar=lgbar, A=A, B=B, vbar=vbar, φv=φᵥ)
+end
+
 _params(m::BFZ) = (m.agent.ρ, m.agent.α, m.agent.β, m.ν, m.η, m.δ, m.exog.lgbar,
                    m.exog.A, m.exog.B, m.exog.vbar, m.exog.φᵥ, m.exog.τ)
 
@@ -204,13 +213,21 @@ function solve(m::BFZ, re_compute::Bool=false; kwargs...)
             if haskey(model_map, the_params)
                 # delete the group so we can re-compute
                 delete!(f, "$(model_map[the_params])")
+                grp_key = model_map[the_params]
+            else
+                grp_key = length(model_map) > 0 ? maximum(values(model_map)) + 1 : 1
             end
+
             coefs, j, c, kp = solve_ecm(m; kwargs...)
-            grp_key = length(model_map) > 0 ? maximum(values(model_map)) + 1 : 1
+
             for (nm, val) in zip([:j, :coefs, :c, :kp], (j, coefs, c, kp))
                 write(f, "$grp_key/$nm", val)
             end
+
+            # update the model map
             model_map[the_params] = grp_key
+            delete!(f, "model_map")
+            write(f, "model_map", model_map)
         end
 
         coefs, j, c, kp, grp_key
