@@ -22,10 +22,10 @@ function simulate{T<:Number}(ep::AbstractExogenousProcess{1}, x0::T,
 end
 
 function simulate{T<:Number,N}(ep::AbstractExogenousProcess{N},
-                               x0::Vector{T}=ones(T, N); capT::Int=25_000)
-
+                               x0::Vector{T}=ones(N);
+                               capT::Int=25_000)
     out = Array(T, N, capT)
-    out[:, 1] = x0
+    out[:, 1] = convert(Vector{T}, x0)
     @inbounds for t=2:capT
         out[:, t] = step(ep, out[:, t-1])
     end
@@ -79,7 +79,6 @@ function ConstantVolatility(γ::Real, v1::Real, v2::Real, nϵ1::Integer,
 end
 
 Base.step{N}(ex::ConstantVolatility{N}, x, ϵ=randn(N)) = ex.A*x .+ ex.B*ϵ
-
 
 immutable StochasticVolatility{N} <: AbstractExogenousProcess{N}
     A::Float64

@@ -100,7 +100,7 @@ end
 
 function buildSS{N1,N2,T,N}(endog::NTuple{N1,EndogenousState{T}},
                             exog::NTuple{N2,ExogenousState{T}},
-                            states::NTuple{N,Union(EndogenousState{T}, ExogenousState{T})}
+                            states::NTuple{N,Union(EndogenousState{T}, ExogenousState{T})},
                             grid::Matrix{T},
                             b::Basis{N})
     DefaultStateSpace{N1,N2,T,N}(endog, exog, grid, b)
@@ -114,8 +114,22 @@ function DefaultStateSpace{N1,N2,T}(endog::NTuple{N1,EndogenousState{T}},
     DefaultStateSpace{N1,N2,T}(endog, exog, grid, basis)
 end
 
+function DefaultStateSpace(b::Basis, nendog::Int)
+    grid, grids = nodes(b)
+    N = ndims(B)
+    nexog = N - nendog
+    endog = tuple([EndogenousState(grids[i], b[i]) for i=1:nendog]...)
+    exog = tuple([(grids[i], b[i]) for i=nendog+1:N]...)
+
+
+
 # function DefaultStateSpace{N1,N2,T}(endog::NTuple{N1,Vector{T}},
 #                                     exog::NTuple{N2,Vector{T}})
+
+# ------------------------------------------------------------------- #
+# Frictions
+# ------------------------------------------------------------------- #
+include("MA_Frictions.jl")
 
 export AbstractEntity,
        AbstractConsumer, EpsteinZinAgent, utility, is_recursive,
@@ -124,6 +138,7 @@ export AbstractEntity,
        AbstractStateVariable, EndogenousState, ExogenousState,
        AbstractExogenousProcess,
        ConstantVolatility1, ConstantVolatility, StochasticVolatility, simulate,
-       AbstractStateSpace, DefaultStateSpace
+       AbstractStateSpace, DefaultStateSpace,
+       AbstractAdjustmentCost, AdjCost
 
 end

@@ -8,6 +8,7 @@ immutable CESProducer <: AbstractProducer
 end
 
 _production(p::CESProducer, k) = (p.η * k.^p.ν + (1 - p.η)).^(1./p.ν)
+f_k(p::CESProducer, k) = _production(p, k).^(1. - p.ν) .* p.η .* k.^(ν - 1)
 
 # ------------------------------------------------------------------- #
 # Cobb-Douglas Producer
