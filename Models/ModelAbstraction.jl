@@ -58,41 +58,13 @@ include("MA_Exogenous.jl")
 # ------------------------------------------------------------------- #
 abstract AbstractStateSpace{N}
 
-# immutable BFZStateSpace <: AbstractStateSpace{2}
-#     k::EndogenousState{Float64}
-#     x::ExogenousState{Float64}
-#     g::ExogenousState{Float64}
-#     grid::Matrix{Float64}
-#     grid_transpose::Matrix{Float64}
-#     basis::Basis{2}
-#     basis_struct::BasisStructure{Direct}
-# end
-
-# function BFZStateSpace(lb::Vector=[18.0, -.04, -1e-4],
-#                        ub::Vector=[32.0, .04, 1e-4],
-#                        n::Vector{Int}=[25, 8, 12],
-#                        k::Vector=[3, 1, 1],
-#                        bp::Vector=fill(SplineParams, 3),
-#                        neps=[3,3])
-#     # construct basis
-#     basis = Basis(map(bp, lb, ub, n, k)...)
-
-#     # extract grids
-#     grid, (kgrid, xgrid, vgrid) = nodes(basis)
-
-#     # TODO: at this point we need to have the exogenous process details also
-#     #       in order to construct xp and vp. So maybe that needs to be an
-#     #       argument here
-#     ks = EndogenousState(kgrid)
-# end
-
 export AbstractEntity,
        AbstractConsumer, EpsteinZinAgent, utility, is_recursive,
        AbstractProducer, CESProducer, _production,
        AbstractVariable,
        AbstractStateVariable, EndogenousState, ExogenousState,
        AbstractExogenousProcess,
-       ConstantVolatility, StochasticVolatility, simulate,
+       ConstantVolatility1, ConstantVolatility, StochasticVolatility, simulate,
        AbstractStateSpace
 
 end

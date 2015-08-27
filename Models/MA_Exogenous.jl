@@ -27,7 +27,7 @@ function simulate{T<:Number,N}(ep::AbstractExogenousProcess{N},
     out = Array(T, N, capT)
     out[:, 1] = x0
     @inbounds for t=2:capT
-        out[:, t] = step(ep, out[:, t-1]...)
+        out[:, t] = step(ep, out[:, t-1])
     end
 
     return out
@@ -37,7 +37,8 @@ end
 # AR1ConstantVolatility
 # ------------------------------------------------------------------- #
 
-immutable ConstantVolatility{N} <: AbstractExogenousProcess{N}
+# special case the 1d version
+immutable ConstantVolatility1 <: AbstractExogenousProcess{1}
     A::Float64
     Bv::Float64
     ϵ::Array{Float64, 1}
@@ -45,17 +46,38 @@ immutable ConstantVolatility{N} <: AbstractExogenousProcess{N}
     Πcumsum::Array{Float64, 1}
 end
 
-function ConstantVolatility(A::Float64=0., B::Float64=1., vbar::Float64=0.004, nϵ::Int=5)
+function ConstantVolatility1(A::Float64=0., B::Float64=1., vbar::Float64=0.004, nϵ::Int=5)
 
     Bv = B * sqrt(vbar)
     ϵ, Π = qnwnorm(nϵ, 0., 1.)
     Πcumsum = cumsum(Π)
 
-    ConstantVolatility{1}(A, Bv, ϵ, Π, Πcumsum)
+    ConstantVolatility1(A, Bv, ϵ, Π, Πcumsum)
 end
 
-Base.step(ep::ConstantVolatility{1}, x::Float64, ϵ) = ep.A*x .+ ep.Bv*ϵ
-Base.step(ep::ConstantVolatility{1}, x::Float64) = step(ep, x, randn())
+Base.step(ep::ConstantVolatility1, x::Float64, ϵ) = ep.A*x .+ ep.Bv*ϵ
+Base.step(ep::ConstantVolatility1, x::Float64) = step(ep, x, randn())
+
+# use matrix form to represent general version
+immutable ConstantVolatility{N} <: AbstractExogenousProcess{N}
+    A::Matrix{Float64}
+    B::Matrix{Float64}
+    ϵ::Matrix{Float64}
+    Π::Vector{Float64}
+    Πcumsum::Vector{Float64}
+end
+
+# standard 2d case where we can scale by z1 to reduce dimensionality
+function ConstantVolatility(γ::Real, v1::Real, v2::Real, nϵ1::Integer,
+                            nϵ2::Integer)
+
+    A = [γ 1-γ; 1-γ γ]
+    B = [v1 0; 0 v2]
+    ϵ, Π = qnwnorm([nϵ1, nϵ2], zeros(2), eye(2))
+    ConstantVolatility{2}(A, B, ϵ, Π, cumsum(Π))
+end
+
+Base.step{N}(ex::ConstantVolatility{N}, x, ϵ=randn(N)) = ex.A*x .+ ex.B*ϵ
 
 
 immutable StochasticVolatility{N} <: AbstractExogenousProcess{N}

@@ -39,7 +39,9 @@
 
   Note: For $\gamma_i = 1$ and $I_i = 0$ that we get $k_{t+1} = (1 - \delta) k_t$ which is the standard rate of depreciation.
 
-  If we then scale the model by $z_1$ and define $\xi := \frac{z_2}{z_1}$, we get\footnote{I'm going to use same variable names, but everything in sight is scaled by $z_1$}
+  If we then scale the model by $z_1$ and define $\xi := \frac{z_2}{z_1}$, we
+  get\footnote{I'm going to use same variable names, but everything in sight is
+  scaled by $z_1$}
 
   \begin{align*}
     J(k_1, k_2, \xi, U) &= \max_{c_1, c_2, I_1, I_2, U'} \left[ (1 - \beta_1) c_1^{\rho_1} + \beta_1 \mu(g' J')^\rho \right]^{\frac{1}{\rho_1}} \\
@@ -72,12 +74,12 @@
 \section{ECM}
 
 We will use the FOC in $c_1$ and $c_2$ together with the envelope for $J_{k_1}$
-and $J_{k_2}$ to solve for the optimal $c_1,c_2$ in closed form:
+and $J_{k_2}$ to solve for the optimal $c_1,c_2$ in closed form (note we can pull $\fracpd{\Gamma_i}{k_i}$ out of the expectaiton):
 
-\begin{align*}
-  c_1 &= \left( \frac{J_{k_1} - J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_1}{k_1} J'_{k_1} \right]}{J^{1-\rho_1} \fracpd{f_1}{k_1} (1 - \beta_1)} \right)^{\frac{1}{\rho_1 - 1}} \\
-   c_2 &= \left( \frac{J_{k_2} - J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_2}{k_2} J'_{k_2} \right]}{\lambda_p  U^{1-\rho_2} \fracpd{f_2}{k_2} (1 - \beta_2)} \right)^{\frac{1}{\rho_2 - 1}} \\
-\end{align*}
+\begin{align} \label{eq:solve_c}
+  c_1 &= \left( \frac{J_{k_1} - J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} \fracpd{\Gamma_1}{k_1} E \left[ (g'J')^{\alpha_1 - 1} J'_{k_1} \right]}{J^{1-\rho_1} \fracpd{f_1}{k_1} (1 - \beta_1)} \right)^{\frac{1}{\rho_1 - 1}} \\
+   c_2 &= \left( \frac{J_{k_2} - J^{1-\rho_1} \beta_1 E\left[(g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}} \fracpd{\Gamma_2}{k_2} E \left[ (g'J')^{\alpha_1 - 1} J'_{k_2} \right]}{\lambda_p  U^{1-\rho_2} \fracpd{f_2}{k_2} (1 - \beta_2)} \right)^{\frac{1}{\rho_2 - 1}} \\
+\end{align}
 
 
 Or we could use FOC $c_1$ and env $J_{k_1}$ to get the same $c_1$ as above and
@@ -86,6 +88,67 @@ use FOC $c_1$ with FOC $c_2$ to get $c_2$:
 \begin{align*}
   c_2 &= \left( \frac{\lambda_p U^{1-\rho_2}(1 - \beta_2)}{J^{1-\rho_1} (1 - \beta_1)c_1^{\rho_1 - 1}} \right)^{\frac{1}{\rho_2-1}}
 \end{align*}
+
+The we can combine the $I_1$ and $I_2$ FOC to obtain
+
+\begin{align} \label{eq:solve_I}
+  E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_1}{I_1} J_{k_1}' \right] &= E \left[ (g'J')^{\alpha_1 - 1} \fracpd{\Gamma_2}{I_2} J_{k_2}' \right] \\
+  \fracpd{\Gamma_1}{I_1} E \left[ (g'J')^{\alpha_1 - 1} J_{k_1}' \right] &= \fracpd{\Gamma_2}{I_2} E \left[ (g'J')^{\alpha_1 - 1} J_{k_2}' \right] \\
+\end{align}
+
+We can use this equation to solve for either $I_1$ or $I_2$ and use the budget constraint to get the other one.
+
+Now we are just left with the FOC wrt $U'(\text{state}')$ for choosing $U'$ state by state for the next period. There are at least two approaches to doing this:
+
+  \subsection{Lars' Style} \label{sub:Lars_Style}
+
+    Define
+
+    \begin{align*}
+      a &= \frac{E \left[ (g'U')^{\alpha_2} \right]^{\frac{\rho_2 - \alpha_2}{\alpha_2}}}{E \left[ (g'J')^{\alpha_1} \right]^{\frac{\rho_1 - \alpha_1}{\alpha_1}}} \\
+      &= \frac{\mu_2(g' U')^{\rho_2 - \alpha_2}}{\mu_1(g' U')^{\rho_1 - \alpha_1}} \\
+    \end{align*}
+
+    Then write the U' FOC as
+
+    \begin{align*}
+      \lambda_p \frac{U^{1 - \rho_2}}{J^{1 - \rho_1}} \frac{\beta_2}{\beta_1} a g'^{\alpha_2 - \alpha_1} = \frac{J'^{\alpha_1 - 1}}{U'^{\alpha_1 - 1}} (-J_u')
+    \end{align*}
+
+    We can then start with a guess for $a$, use it to solve for $U'$ at each
+    possible state tomorrow, update the value of $a$ and iterate until
+    convergence.
+
+    This this nice because it allows us to solve a series of univariate
+    optimization problems and enables us to use uber-robust bracketing methods
+    to compute t
+
+    \subsection{System} \label{sub:system}
+
+      An alternative to this approach is to solve for $I_1, U'(\text{state'})$ as a system for every point in the current period state space. The approach to doing this would be
+
+      \begin{itemize}
+        \item Start with a guess for $I_1$ and $U'(\text{state'})$
+        \item Use \eqref{eq:solve_c} to solve for $c_1, c_2$
+        \item Given $c_1, c_2, I_1$, use the budget constraint to solve for $I_2$.
+        \item Use \eqref{eq:solve_I} and the FOC for $U'$ to provide the solver a system of $1 + n_{\text{state}'}$ residuals for $I_1, U'(\text{state'})$
+        \item After the solver converges, use the same routines called internally to produce the optimal value of $c_1, c_2, I_2$.
+      \end{itemize}
+
+      There are some advantages to this approach:
+
+      \begin{itemize}
+        \item We can leverage automatic differentiation routines to provide analytical derivatives to the solver. This means we can leverage derivative information in the solver and hopefully achieve faster than quadratic convergence (which is the best we can do with our current bracketing methods \texttt{brent})
+        \item It is simpler to avoid duplicating computation. We can simply compute things like expectations and interpolands once and re-use them in solving for $c_1, c_2, I_2$ and in computing the residuals.
+        \item We avoid the complications associated with the additional variable $a$
+      \end{itemize}
+
+      There might be some dis-advantages also:
+
+      \begin{itemize}
+        \item We can't use super robust bracketing methods. like we did with the sequence of univariate problems
+      \end{itemize}
+
 
 
 \end{document}

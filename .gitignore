@@ -115,3 +115,4 @@ space/build/
 *.hi
 bin/
 *.tags*
+auto/
