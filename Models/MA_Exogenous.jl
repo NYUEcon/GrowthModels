@@ -46,7 +46,8 @@ immutable ConstantVolatility1 <: AbstractExogenousProcess{1}
     Πcumsum::Array{Float64, 1}
 end
 
-function ConstantVolatility1(A::Float64=0., B::Float64=1., vbar::Float64=0.004, nϵ::Int=5)
+function ConstantVolatility1(A::Float64=0., B::Float64=1., vbar::Float64=0.004,
+                             nϵ::Int=5)
 
     Bv = B * sqrt(vbar)
     ϵ, Π = qnwnorm(nϵ, 0., 1.)
