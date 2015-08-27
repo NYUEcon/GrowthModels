@@ -1,7 +1,7 @@
 module X
 
 using CompEcon
-include("ModelAbstraction.jl")
+include("../../ModelAbstraction.jl")
 using .ModelAbstraction
 
 immutable BFZStateSpace <: AbstractStateSpace{2}
