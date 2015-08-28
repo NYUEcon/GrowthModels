@@ -84,26 +84,18 @@ include("MA_Exogenous.jl")
 abstract AbstractStateSpace{Nendog,Nexog}
 
 immutable DefaultStateSpace{Nendog,Nexog,T,N} <: AbstractStateSpace{N}
-    enog::NTuple{Nendog,EndogenousState{T}}
+    endo::NTuple{Nendog,EndogenousState{T}}
     exog::NTuple{Nexog,ExogenousState{T}}
     grid::Matrix{T}
+    grid_transpose::Matrix{T}
     basis::Basis{N}
 end
 
-function call{N1,N2,T}(::Type{DefaultStateSpace{N1,N2,T}},
-                       endog::NTuple{N1,EndogenousState{T}},
-                       exog::NTuple{N2,ExogenousState{T}},
-                       grid::Matrix{T},
-                       b::Basis)
-    buildSS(endog, exog, (endog..., exog...), grid, b)
-end
-
-function buildSS{N1,N2,T,N}(endog::NTuple{N1,EndogenousState{T}},
-                            exog::NTuple{N2,ExogenousState{T}},
-                            states::NTuple{N,Union(EndogenousState{T}, ExogenousState{T})},
-                            grid::Matrix{T},
-                            b::Basis{N})
-    DefaultStateSpace{N1,N2,T,N}(endog, exog, grid, b)
+function DefaultStateSpace{N1,N2,T,N}(endog::NTuple{N1,EndogenousState{T}},
+                                      exog::NTuple{N2,ExogenousState{T}},
+                                      grid::Matrix{T},
+                                      b::Basis{N})
+    DefaultStateSpace(endog, exog, grid, grid', b)
 end
 
 function DefaultStateSpace{N1,N2,T}(endog::NTuple{N1,EndogenousState{T}},
@@ -114,12 +106,12 @@ function DefaultStateSpace{N1,N2,T}(endog::NTuple{N1,EndogenousState{T}},
     DefaultStateSpace{N1,N2,T}(endog, exog, grid, basis)
 end
 
-function DefaultStateSpace(b::Basis, nendog::Int)
-    grid, grids = nodes(b)
-    N = ndims(B)
-    nexog = N - nendog
-    endog = tuple([EndogenousState(grids[i], b[i]) for i=1:nendog]...)
-    exog = tuple([(grids[i], b[i]) for i=nendog+1:N]...)
+# function DefaultStateSpace(b::Basis, nendog::Int)
+#     grid, grids = nodes(b)
+#     N = ndims(B)
+#     nexog = N - nendog
+#     endog = tuple([EndogenousState(grids[i], b[i]) for i=1:nendog]...)
+#     exog = tuple([(grids[i], b[i]) for i=nendog+1:N]...)
 
 
 
@@ -133,12 +125,13 @@ include("MA_Frictions.jl")
 
 export AbstractEntity,
        AbstractConsumer, EpsteinZinAgent, utility, is_recursive,
-       AbstractProducer, CESProducer, _production,
+       AbstractProducer, CESProducer, f_k,
        AbstractVariable,
        AbstractStateVariable, EndogenousState, ExogenousState,
        AbstractExogenousProcess,
        ConstantVolatility1, ConstantVolatility, StochasticVolatility, simulate,
        AbstractStateSpace, DefaultStateSpace,
-       AbstractAdjustmentCost, AdjCost
+       AbstractAdjustmentCost, AdjCost, _ac, _dIac, _dkac,
+       _unpack
 
-end
+end  # module

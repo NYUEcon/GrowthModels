@@ -11,7 +11,7 @@ end
 _unpack(ac::AdjCost) = (ac.ikbar, ac.η)
 
 _ac(ac::AdjCost, it, kt) =
-    ((ac.ikbar)^(1 - ac.η) * (it/kt)^(ac.η) - (1 - ac.η)*(ikbar)) / ac.η
+    ((ac.ikbar)^(1 - ac.η) * (it/kt)^(ac.η) - (1 - ac.η)*(ac.ikbar)) / ac.η
 
 _dIac(ac::AdjCost, it, kt) =
     ((ac.ikbar)^(1 - ac.η) * (it/kt)^(ac.η - 1))
