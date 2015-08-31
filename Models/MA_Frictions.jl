@@ -14,7 +14,7 @@ _ac(ac::AdjCost, it, kt) =
     ((ac.ikbar)^(1 - ac.η) * (it/kt)^(ac.η) - (1 - ac.η)*(ac.ikbar)) / ac.η
 
 _dIac(ac::AdjCost, it, kt) =
-    ((ac.ikbar)^(1 - ac.η) * (it/kt)^(ac.η - 1))
+    ((ac.ikbar)^(1 - ac.η) * it^(ac.η - 1)*kt^(-ac.η))
 
 _dkac(ac::AdjCost, it, kt) =
-    ((ac.ikbar)^(1 - ac.η) * (kt/it)^(-ac.η - 1.))  # TODO: Double check this later
+    -((ac.ikbar)^(1 - ac.η) * it^(ac.η)*kt^(-ac.η-1))

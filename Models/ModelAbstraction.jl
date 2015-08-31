@@ -45,7 +45,7 @@ EndogenousState(grid::Vector) =
 # instance might be different than the grid you passed in.
 function EndogenousState(grid::Vector, b::Basis{1})
     real_grid = nodes(b)[1]
-    Φ = CompEcon.evalbase(b.params[1], real_grid, 0)
+    Φ = CompEcon.evalbase(b.params[1], real_grid, 0)[1]
     EndogenousState(real_grid, b, Φ)
 end
 
@@ -67,7 +67,7 @@ function ExogenousState(grid::Vector, gridp, b::Basis{1})
                      " based on that grid or things won't line up")
         throw(ArgumentError(msg))
     end
-    Φ = CompEcon.evalbase(b.params[1], real_grid, 0)
+    Φ = CompEcon.evalbase(b.params[1], real_grid, 0)[1]
     ExogenousState(real_grid, gridp, b, Φ)
 end
 

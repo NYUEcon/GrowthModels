@@ -6,6 +6,7 @@ immutable EpsteinZinAgent <: AbstractConsumer
     α::Float64
     β::Float64
 end
+
 _unpack(ez::EpsteinZinAgent) = (ez.ρ, ez.α, ez.β)
 
 is_recursive(a::EpsteinZinAgent) = a.ρ == a.α ? false : true
