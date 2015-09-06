@@ -6,8 +6,9 @@ immutable CESProducer <: AbstractProducer
     ν::Float64
 end
 
-call(p::CESProducer, k, l) = (p.η*k.^p.ν + (1-p.η)*l.^(p.ν)).^(1./p.ν)
-f_k(p::CESProducer, k, l) = p.η * (p(k, l) ./ k).^(1.-p.ν)
+# call(p::CESProducer, k, l) = (p.η*k.^p.ν + (1-p.η)*l.^(p.ν)).^(1./p.ν)
+Base.produce(p::CESProducer, k, l) = (p.η*k.^p.ν + (1-p.η)*l.^(p.ν)).^(1./p.ν)
+f_k(p::CESProducer, k, l) = p.η * (produce(p, k, l) ./ k).^(1.-p.ν)
 
 # ------------------------------------------------------------------- #
 # Cobb-Douglas Producer

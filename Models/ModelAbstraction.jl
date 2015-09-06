@@ -12,7 +12,7 @@ abstract AbstractProducer <: AbstractAgent
 abstract AbstractGovernment <: AbstractAgent  # is the government an entity or an agent?
 
 immutable NotImplementedError <: Exception
-    msg::AbstractString
+    msg::String
 end
 
 # AbstractConsumer Interface
