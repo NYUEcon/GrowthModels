@@ -84,8 +84,14 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     Π = bcfl.exog.Π
 
     # extract guess
-    I1, I2 = guess[1:2]
-    Up = guess[3:end]
+    #I1, I2 = guess[1:2]
+    #Up = guess[3:end]
+    #AXELLE
+    lI1, lI2 = guess[1:2]
+    lUp = guess[3:end]
+    I1 = exp(lI1)
+    I2 = exp(lI2)
+    Up = exp(lUp)
 
     # Get tomorrow's state
     k1, k2, U, ξ = state
@@ -128,15 +134,19 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     resid[1] = lhsI1 - rhsI1
 
     # use c1, c2, I1 in budget constraint to get residual for I2
-    # rhsI2 = c1 + c2 + I1 + I2
+    rhsI2 = c1 + c2 + I1 + I2
     # lhsI2 = bcfl.production1(k1, 1.0) + bcfl.production2(k2, ξ)
-    # resid[2] = rhsI2 - lhsI2
+    lhsI2 = produce(bcfl.production1, k1, 1.) + produce(bcfl.production2, k2, ξ)
+    resid[2] = rhsI2 - lhsI2
 
     # U residual
     nU = length(U)
     for i=1:nU
-        lhs = -dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1)
-        rhs = J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1) * dJpU[i]
+        #lhs = -dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1)
+        #rhs = J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1) * (-dJpU[i]) # THIS IS CORRECTED
+        # AXELLE
+        lhs = log(-dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1))
+        rhs = log(J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1)) + log(-dJpU[i])
         resid[i+1] = lhs - rhs
     end
 
@@ -186,9 +196,13 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
     Nϵ = size(bcfl.gp, 1)
 
     # give bogus thing here. mean(coefs) ≈ mean(J) (within 1e-2)
-    prev_soln(i::Int) = [0.8*bcfl.ss.grid_transpose[1, i];
-                         0.8*bcfl.ss.grid_transpose[2, i];
-                         fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
+    # prev_soln(i::Int) = [0.8*bcfl.ss.grid_transpose[1, i];
+    #                     0.8*bcfl.ss.grid_transpose[2, i];
+    #                     fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
+    # AXELLE
+    prev_soln(i::Int) = [log(0.8*bcfl.ss.grid_transpose[1, i]);
+                         log(0.8*bcfl.ss.grid_transpose[2, i]);
+                         log(fill(bcfl.ss.grid_transpose[3, i], Nϵ))]
 
     # local out
     while dist > tol && iter < maxiter
@@ -220,11 +234,11 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
 
             df = DifferentiableMultivariateFunction(f!)
 
-            lb = [1e-2; 1e-2; fill(bcfl.ss.grid[1, 3], 4)]
-            ub = [20.0, 20.0, 10.0, 10.0, 10.0, 8.0]
-            mcpsolve(df, guess, lb, ub, iterations=1000, show_trace=true)
+            # lb = [1e-2; 1e-2; fill(bcfl.ss.grid[1, 3], 4)]
+            # ub = [20.0, 20.0, 10.0, 10.0, 10.0, 8.0]
+            # mcpsolve(df, guess, lb, ub, iterations=1000, show_trace=true)
 
-            # nlsolve(df, guess, iterations=1000, show_trace=true)
+            nlsolve(df, guess, iterations=1000, show_trace=true)
         end
 
         out = map(ssi, 1:size(bcfl.ss.grid, 1))
