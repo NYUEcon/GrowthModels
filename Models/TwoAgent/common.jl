@@ -139,12 +139,15 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     lhsI2 = produce(bcfl.production1, k1, 1.) + produce(bcfl.production2, k2, ξ)
     resid[2] = rhsI2 - lhsI2
 
+    @show guess
+
     # U residual
     nU = length(U)
     for i=1:nU
         #lhs = -dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1)
         #rhs = J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1) * (-dJpU[i]) # THIS IS CORRECTED
         # AXELLE
+        @show U, μ2, Up μ1, Jp, J, -dJU, -dJpU
         lhs = log(-dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1))
         rhs = log(J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1)) + log(-dJpU[i])
         resid[i+1] = lhs - rhs
@@ -229,19 +232,25 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
             #       will be recompiling all the guts for every i on every iteration :yuck:
             function f!(x, fvec)
                  compute_residuals!(bcfl, state, J, dJU, dJk1, coefs, gp, ξp,
-                                   x, fvec)
+                                    x, fvec)
             end
 
-            df = DifferentiableMultivariateFunction(f!)
+            # resid = copy(guess)
+            # println("before: ", resid)
+            # f!(guess, resid)
+            # println("after:", resid)
+
+            # df = DifferentiableMultivariateFunction(f!)
 
             # lb = [1e-2; 1e-2; fill(bcfl.ss.grid[1, 3], 4)]
             # ub = [20.0, 20.0, 10.0, 10.0, 10.0, 8.0]
-            # mcpsolve(df, guess, lb, ub, iterations=1000, show_trace=true)
+            # mcpsolve(f!, guess, lb, ub, iterations=1000, show_trace=true)
 
-            nlsolve(df, guess, iterations=1000, show_trace=true)
+            nlsolve(f!, guess, iterations=1000, show_trace=true, method=:newton)
+            # nlsolve(f!, guess, iterations=1000, show_trace=true)
         end
-
-        out = map(ssi, 1:size(bcfl.ss.grid, 1))
+        ssi(3)
+        # out = map(ssi, 1:size(bcfl.ss.grid, 1))
 
         # update prev_soln function -- use solution found on this iteration
         prev_soln(i::Int) = out[i].zero
