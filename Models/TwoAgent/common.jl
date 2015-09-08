@@ -1,7 +1,7 @@
 module TwoAgents
 
 using CompEcon
-using NLsolve
+using NLsolve, Calculus
 include("../ModelAbstraction.jl")
 using .ModelAbstraction
 
@@ -139,17 +139,15 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     lhsI2 = produce(bcfl.production1, k1, 1.) + produce(bcfl.production2, k2, ξ)
     resid[2] = rhsI2 - lhsI2
 
-    @show guess
-
     # U residual
-    nU = length(U)
-    for i=1:nU
+    nUp = length(Up)
+    for i=1:nUp
         #lhs = -dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1)
         #rhs = J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1) * (-dJpU[i]) # THIS IS CORRECTED
         # AXELLE
-        @show U, μ2, Up μ1, Jp, J, -dJU, -dJpU
         lhs = log(-dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1))
         rhs = log(J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1)) + log(-dJpU[i])
+
         resid[i+1] = lhs - rhs
     end
 
@@ -203,17 +201,17 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
     #                     0.8*bcfl.ss.grid_transpose[2, i];
     #                     fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
     # AXELLE
-    prev_soln(i::Int) = [log(0.8*bcfl.ss.grid_transpose[1, i]);
-                         log(0.8*bcfl.ss.grid_transpose[2, i]);
+    prev_soln(i::Int) = [log(0.2*bcfl.ss.grid_transpose[1, i]);
+                         log(0.2*bcfl.ss.grid_transpose[2, i]);
                          log(fill(bcfl.ss.grid_transpose[3, i], Nϵ))]
 
     # local out
     while dist > tol && iter < maxiter
 
         stuff = funeval(coefs, bs, [0 0 0 0; 1 0 0 0; 0 0 1 0])
-        J_all = stuff[:, 1, 1]
+        J_all    = stuff[:, 1, 1]
         dJk1_all = stuff[:, 1, 2]
-        dJU_all = stuff[:, 1, 3]
+        dJU_all  = stuff[:, 1, 3]
 
         # function to solve state i
         function ssi(i)
@@ -235,22 +233,16 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
                                     x, fvec)
             end
 
-            # resid = copy(guess)
-            # println("before: ", resid)
-            # f!(guess, resid)
-            # println("after:", resid)
-
-            # df = DifferentiableMultivariateFunction(f!)
-
             # lb = [1e-2; 1e-2; fill(bcfl.ss.grid[1, 3], 4)]
             # ub = [20.0, 20.0, 10.0, 10.0, 10.0, 8.0]
             # mcpsolve(f!, guess, lb, ub, iterations=1000, show_trace=true)
 
-            nlsolve(f!, guess, iterations=1000, show_trace=true, method=:newton)
+            nlsolve(f!, guess, iterations=1000, show_trace=false,
+                    extended_trace=true, store_trace=true)
             # nlsolve(f!, guess, iterations=1000, show_trace=true)
         end
-        ssi(3)
-        # out = map(ssi, 1:size(bcfl.ss.grid, 1))
+
+        out = map(ssi, 1:size(bcfl.ss.grid, 1))
 
         # update prev_soln function -- use solution found on this iteration
         prev_soln(i::Int) = out[i].zero
