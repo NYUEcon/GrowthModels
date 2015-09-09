@@ -81,6 +81,7 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     Up = guess[3:end]
     k1, k2, U, ξ = state
 
+
     # Derivative of Adjustment costs
     # NOTE: I am assuming that Γ_i(k_i, I_i) = (1 - δ_i) k_i + I_i
     dΓ1_dI1 = 1.0  # - _dIac(bcfl.ac1, k1, I1)
@@ -109,19 +110,31 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     dJpU  = out[:, 1, 4]
 
     # Evaluate all expectations
+    if any(Jp .< 0)
+        @show Jp statep
+    end
     μ1 = dot(Π, (gp .* Jp).^(α1))^(1.0/α1)
     μ2 = dot(Π, (gp .* Up).^(α2))^(1.0/α2)
     EV11 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk1)
     EV12 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk2)
 
+    # TODO: Remove all shows once we are more convinced it is working
     # get consumption
     c1_num   = dJk1 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ1_dk1 * EV11
+    # @show c1_num
+    c1_num = c1_num > 0 ? c1_num : abs(c1_num)
     c1_denom = J.^(1-ρ1) * (1-β1) * df1dk1
+    # @show c1_num c1_denom
     c1       = (c1_num/c1_denom)^(1/(ρ1-1))
+    # @show c1
 
     c2_num   = dJk2 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ2_dk2 * EV12
+    # @show c2_num
+    c2_num = c2_num > 0 ? c2_num : abs(c2_num)
     c2_denom = -dJU * U.^(1-ρ1) * (1-β2) * df2dk2
+    # @show c2_num c2_denom
     c2       = (c2_num/c2_denom)^(1/(ρ2-1))
+    # @show c2
 
     # c2 = ((-dJU * U^(1-ρ2) * (1-β2)) / (J^(1-ρ1) * (1-β1) * c1^(ρ1-1)))^(1/(ρ2-1))
 
@@ -191,9 +204,12 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
     Nϵ = size(bcfl.gp, 1)
 
     # give bogus thing here. mean(coefs) ≈ mean(J) (within 1e-2)
-    prev_soln(i::Int) = [0.1*bcfl.ss.grid_transpose[1, i];
-                         0.1*bcfl.ss.grid_transpose[2, i];
-                         fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
+    i1 = (δ1 - 1).*bcfl.ss.grid[:, 1] .+ (bcfl.ss.grid[:, 1] .+ bcfl.ss.grid[:, 2])./(bcfl.ss.grid[:, 4] + 1)
+    i2 = (bcfl.ss.grid[:, 1].*bcfl.ss.grid[:, 4] + bcfl.ss.grid[:, 2].*(δ2*bcfl.ss.grid[:, 4] + δ2 - 1.)) ./ (bcfl.ss.grid[:, 4] + 1)
+    prev_soln(i::Int) = [i1[i]; i2[i]; fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
+    # prev_soln(i::Int) = [0.025*bcfl.ss.grid_transpose[1, i];
+    #                      0.025*bcfl.ss.grid_transpose[2, i];
+    #                      fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
 
     local out
     while dist > tol && iter < maxiter
@@ -225,18 +241,21 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
                                     ξp, x, fvec)
             end
 
-            # lb = [1e-2; 1e-2; fill(bcfl.ss.grid[1, 3], 4)]
-            # ub = [20.0, 20.0, 10.0, 10.0, 10.0, 8.0]
-            # mcpsolve(f!, guess, lb, ub, iterations=1000, show_trace=true)
+            @show i
+            lb = [-state[1], -state[2], 0., 0., 0., 0.]
+            ub = [Inf, Inf, Inf, Inf, Inf, Inf]
+            out = mcpsolve(f!, lb, ub, guess, factor=.025)
 
-            nlsolve(f!, guess, iterations=300, show_trace=true,
-                    extended_trace=true, store_trace=true)
-            # nlsolve(f!, guess, iterations=1000, show_trace=true)
+            if out.f_converged
+                println("$i converged.")
+                return out
+            else
+                println("$i failed to converged. AHHHHHHHHHH!")
+                return out
+            end
         end
 
-        converged(ssi(4))
-
-        out = map(ssi, 1:size(bcfl.ss.grid, 1))
+        out = pmap(ssi, 1:size(bcfl.ss.grid, 1))
 
         # update prev_soln function -- use solution found on this iteration
         prev_soln(i::Int) = out[i].zero
@@ -249,3 +268,6 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
 end
 
 end  # module
+
+bcfl = TwoAgents.BCFL();
+out = TwoAgents.brutal_solution(bcfl)
