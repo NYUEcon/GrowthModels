@@ -1,7 +1,8 @@
 module TwoAgents
 
 using CompEcon
-using NLsolve, Calculus
+using NLsolve
+
 include("../ModelAbstraction.jl")
 using .ModelAbstraction
 
@@ -44,11 +45,6 @@ function BCFL21(;ρ1::Real=-1.0 , α1::Real=-9.0, β1::Real=0.999,
                   SplineParams(collect(linspace(10.0, 40.0, nk2)), 0, 3),
                   SplineParams(collect(linspace(0.1 , 12.0, nU)), 0, 3),
                   LinParams(collect(linspace(0.99, 1.01, nξ)), 0))
-    #
-    # basis = Basis(ChebParams(nk1, 10.0 , 40.0),
-    #               ChebParams(nk2, 10.0 , 40.0),
-    #               ChebParams(nU, 1e-2, 12.0),
-    #               ChebParams(nξ, 0.99 , 1.01))
 
     grid, (_k1grid, _k2grid, _Ugrid, _ξgrid) = nodes(basis)
 
@@ -67,15 +63,12 @@ function BCFL21(;ρ1::Real=-1.0 , α1::Real=-9.0, β1::Real=0.999,
                   exp(lgp)', ss)
 end
 
-function get_bs_on_grid(m::BCFL21)
-    reduce(CompEcon.row_kron, )
-end
-
 _unpack_params(m::BCFL21) = vcat(_unpack(m.agent1)..., _unpack(m.agent2)...,
                              _unpack(m.ac1)..., _unpack(m.ac2)...)
 
 function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
-                            dJU::Float64, dJk1::Float64, coefs::Vector{Float64},
+                            dJU::Float64, dJk1::Float64, dJk2::Float64,
+                            coefs::Vector{Float64},
                             gp::Vector{Float64}, ξp::Vector{Float64},
                             guess::Vector, resid::Vector)
 
@@ -83,20 +76,25 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     ρ1, α1, β1, ρ2, α2, β2, δ1, η1, δ2, η2 = _unpack_params(bcfl)
     Π = bcfl.exog.Π
 
-    # extract guess
-    #I1, I2 = guess[1:2]
-    #Up = guess[3:end]
-    #AXELLE
-    lI1, lI2 = guess[1:2]
-    lUp = guess[3:end]
-    I1 = exp(lI1)
-    I2 = exp(lI2)
-    Up = exp(lUp)
+    # extract guess and state
+    I1, I2 = guess[1:2]
+    Up = guess[3:end]
+    k1, k2, U, ξ = state
+
+    # Derivative of Adjustment costs
+    # NOTE: I am assuming that Γ_i(k_i, I_i) = (1 - δ_i) k_i + I_i
+    dΓ1_dI1 = 1.0  # - _dIac(bcfl.ac1, k1, I1)
+    dΓ2_dI2 = 1.0  # - _dIac(bcfl.ac2, k2, I2)
+    dΓ1_dk1 = (1 - δ1)  # - _dkac(bcfl.ac1, k1, I1)
+    dΓ2_dk2 = (1 - δ2)  # - _dkac(bcfl.ac1, k1, I1)
+
+    # MPK for agent 1. Note we set the `z` arg to one b/c we scaled by z1
+    df1dk1 = f_k(bcfl.production1, k1, 1.0)
+    df2dk2 = f_k(bcfl.production2, k2, ξ)
 
     # Get tomorrow's state
-    k1, k2, U, ξ = state
-    k1p = ((1 - δ1)*k1 + I1 - _ac(bcfl.ac1, k1, I1)) ./ gp
-    k2p = ((1 - δ2)*k2 + I2 - _ac(bcfl.ac2, k2, I2)) ./ gp
+    k1p = ((1 - δ1)*k1 + I1) ./ gp  # - _ac(bcfl.ac1, k1, I1)) ./ gp
+    k2p = ((1 - δ2)*k2 + I2) ./ gp  # - _ac(bcfl.ac2, k2, I2)) ./ gp
     statep = [k1p k2p Up ξp]
 
     # Evaluate value function and its partials at next period's state. This is
@@ -110,45 +108,41 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     dJpk2 = out[:, 1, 3]
     dJpU  = out[:, 1, 4]
 
-    # Derivative of Adjustment costs
-    dΓ1_dI1 = 1.0 - _dIac(bcfl.ac1, k1, I1)
-    dΓ2_dI2 = 1.0 - _dIac(bcfl.ac2, k2, I2)
-    dΓ1_dk1 = (1 - δ1) - _dkac(bcfl.ac1, k1, I1)
-
-    # MPK for agent 1. Note we set the `z` arg to one b/c we scaled by z1
-    df1dk1 = f_k(bcfl.production1, k1, 1.0)
-
     # Evaluate all expectations
-    μ1 = dot(Π, (gp .* Jp).^(α1))
-    μ2 = dot(Π, (gp .* Up).^(α2))
-    EV21 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk1)
-    EV22 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk2)
+    μ1 = dot(Π, (gp .* Jp).^(α1))^(1.0/α1)
+    μ2 = dot(Π, (gp .* Up).^(α2))^(1.0/α2)
+    EV11 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk1)
+    EV12 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk2)
 
     # get consumption
-    c1 = (dJk1 - J^(1-ρ1) * μ1^(ρ1-α1) * dΓ1_dk1 * EV21)/(J.^(1-ρ1)*(1-β1)*df1dk1)
-    c2 = ((-dJU * U^(1-ρ2) * (1-β2)) / (J^(1-ρ1) * (1-β1) * c1^(ρ1-1)))^(1/(ρ2-1))
+    c1_num   = dJk1 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ1_dk1 * EV11
+    c1_denom = J.^(1-ρ1) * (1-β1) * df1dk1
+    c1       = (c1_num/c1_denom)^(1/(ρ1-1))
+
+    c2_num   = dJk2 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ2_dk2 * EV12
+    c2_denom = -dJU * U.^(1-ρ1) * (1-β2) * df2dk2
+    c2       = (c2_num/c2_denom)^(1/(ρ2-1))
+
+    # c2 = ((-dJU * U^(1-ρ2) * (1-β2)) / (J^(1-ρ1) * (1-β1) * c1^(ρ1-1)))^(1/(ρ2-1))
 
     # I residual
-    lhsI1 = EV21 .* dΓ1_dI1
-    rhsI1 = EV22 .* dΓ2_dI2
+    lhsI1 = EV11 .* dΓ1_dI1
+    rhsI1 = EV12 .* dΓ2_dI2
     resid[1] = lhsI1 - rhsI1
 
     # use c1, c2, I1 in budget constraint to get residual for I2
     rhsI2 = c1 + c2 + I1 + I2
-    # lhsI2 = bcfl.production1(k1, 1.0) + bcfl.production2(k2, ξ)
     lhsI2 = produce(bcfl.production1, k1, 1.) + produce(bcfl.production2, k2, ξ)
     resid[2] = rhsI2 - lhsI2
 
     # U residual
     nUp = length(Up)
     for i=1:nUp
-        #lhs = -dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1)
-        #rhs = J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1) * (-dJpU[i]) # THIS IS CORRECTED
-        # AXELLE
-        lhs = log(-dJU * U.^(1-ρ2) * β2 * μ2.^((ρ2-α2)/α2) .* gp[i]^α2 .* Up[i].^(α2-1))
-        rhs = log(J^(1-ρ1) * β1 * μ1.^((ρ1-α1)/α1) * gp[i]^α1 * Jp[i]^(α1-1)) + log(-dJpU[i])
-
-        resid[i+1] = lhs - rhs
+        lhs = -dJU * U.^(1-ρ2) * β2 * μ2.^(ρ2-α2) .* gp[i]^α2 .* Up[i].^(α2-1)
+        # TODO: check rhs to make sure that we have negative signs in the right
+        #       place.
+        rhs = J^(1-ρ1) * β1 * μ1.^(ρ1-α1) * gp[i]^α1 * Jp[i]^(α1-1) * (-dJpU[i])
+        resid[i+2] = lhs - rhs
     end
 
     return resid
@@ -190,28 +184,25 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
 
     # BasisStructure for interpolation
     bs = BasisStructure(bcfl.ss.basis, Direct(), bcfl.ss.grid,
-                        [0 0 0 0; 1 0 0 0; 0 0 1 0])
+                        [0 0 0 0; 1 0 0 0; 0 1 0 0; 0 0 1 0])
 
     coefs = initial_coefs(bcfl, bs)
 
     Nϵ = size(bcfl.gp, 1)
 
     # give bogus thing here. mean(coefs) ≈ mean(J) (within 1e-2)
-    # prev_soln(i::Int) = [0.8*bcfl.ss.grid_transpose[1, i];
-    #                     0.8*bcfl.ss.grid_transpose[2, i];
-    #                     fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
-    # AXELLE
-    prev_soln(i::Int) = [log(0.2*bcfl.ss.grid_transpose[1, i]);
-                         log(0.2*bcfl.ss.grid_transpose[2, i]);
-                         log(fill(bcfl.ss.grid_transpose[3, i], Nϵ))]
+    prev_soln(i::Int) = [0.1*bcfl.ss.grid_transpose[1, i];
+                         0.1*bcfl.ss.grid_transpose[2, i];
+                         fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
 
-    # local out
+    local out
     while dist > tol && iter < maxiter
 
-        stuff = funeval(coefs, bs, [0 0 0 0; 1 0 0 0; 0 0 1 0])
+        stuff = funeval(coefs, bs, [0 0 0 0; 1 0 0 0; 0 1 0 0; 0 0 1 0])
         J_all    = stuff[:, 1, 1]
         dJk1_all = stuff[:, 1, 2]
-        dJU_all  = stuff[:, 1, 3]
+        dJk2_all = stuff[:, 1, 3]
+        dJU_all  = stuff[:, 1, 4]
 
         # function to solve state i
         function ssi(i)
@@ -221,26 +212,29 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
             state = bcfl.ss.grid_transpose[:, i]
             J = J_all[i]
             dJk1 = dJk1_all[i]
+            dJk2 = dJk2_all[i]
             dJU = dJU_all[i]
             gp = bcfl.gp[:, i]
-            ξp = bcfl.ss.exog[1].gridp[:, i]  # that's a lot of `.`s. True
+            ξp = bcfl.ss.exog[1].gridp[:, i]
 
             # TODO: performance will probably be significantly better if we can outsourse
             #       most of the guts of compute_residuals! elsewhere. Othwerwise we
             #       will be recompiling all the guts for every i on every iteration :yuck:
             function f!(x, fvec)
-                 compute_residuals!(bcfl, state, J, dJU, dJk1, coefs, gp, ξp,
-                                    x, fvec)
+                 compute_residuals!(bcfl, state, J, dJU, dJk1, dJk2, coefs, gp,
+                                    ξp, x, fvec)
             end
 
             # lb = [1e-2; 1e-2; fill(bcfl.ss.grid[1, 3], 4)]
             # ub = [20.0, 20.0, 10.0, 10.0, 10.0, 8.0]
             # mcpsolve(f!, guess, lb, ub, iterations=1000, show_trace=true)
 
-            nlsolve(f!, guess, iterations=1000, show_trace=false,
+            nlsolve(f!, guess, iterations=300, show_trace=true,
                     extended_trace=true, store_trace=true)
             # nlsolve(f!, guess, iterations=1000, show_trace=true)
         end
+
+        converged(ssi(4))
 
         out = map(ssi, 1:size(bcfl.ss.grid, 1))
 
