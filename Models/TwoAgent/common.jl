@@ -1,6 +1,7 @@
 module TwoAgents
 
 using CompEcon
+using JLD
 using NLsolve
 
 include("../ModelAbstraction.jl")
@@ -186,10 +187,11 @@ function initial_coefs(bcfl::BCFL21, bs::BasisStructure)
     return coefs
 end
 
-function update_J(bcfl::BCFL21, stuff::Array{Float64, 3}, out)
+function update_J(bcfl::BCFL21, stuff::Array{Float64, 3}, coefs::Vector{Float64}, out)
 
     # Unpack parameters
     ρ1, α1, β1, ρ2, α2, β2, δ1, η1, δ2, η2 = _unpack_params(bcfl)
+    Π = bcfl.exog.Π
     nstates = size(bcfl.ss.grid, 1)
     J_all = stuff[:, 1, 1]
     dJk1_all = stuff[:, 1, 2]
@@ -206,7 +208,7 @@ function update_J(bcfl::BCFL21, stuff::Array{Float64, 3}, out)
         I1, I2 = out[i].zero[1:2]
         Up = out[i].zero[3:end]
         gp = bcfl.gp[:, i]
-        ξp = bcfl.ss.exog.grip[:, i]
+        ξp = bcfl.ss.exog[1].gridp[:, i]
 
         # Create statep
         k1p = ((1 - δ1)*k1 + I1) .* gp
@@ -274,7 +276,7 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
     k1_grid = bcfl.ss.grid[:, 1]
     k2_grid = bcfl.ss.grid[:, 2]
     U_grid = bcfl.ss.grid[:, 3]
-    ξ = bcfl.ss.grid[:, 4]
+    ξ_grid = bcfl.ss.grid[:, 4]
 
     i1 = (δ1-1).*k1_grid .+ (k1_grid .+ k2_grid)./(ξ_grid + 1)
     i2 = (k1_grid.*ξ_grid + k2_grid.*(δ2*ξ_grid + δ2 - 1.)) ./ (ξ_grid + 1)
@@ -327,9 +329,12 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
 
         # update prev_soln function -- use solution found on this iteration
         out = pmap(ssi, 1:size(bcfl.ss.grid, 1))
+        jldopen("fooout.jld", "w") do f
+            write(f, "out", out)
+        end
         prev_soln(i::Int) = out[i].zero
 
-        J_upd = update_J(bcfl, stuff, out)
+        J_upd = update_J(bcfl, stuff, coefs, out)
         dist = maxabs(J_all - J_upd)
 
         println("Hallelujah! Finished iteration $iter")
@@ -346,5 +351,5 @@ end  # module
 # include("common.jl")
 # addprocs(3)
 # @everywhere include("common.jl")
-# bcfl = TwoAgents.BCFL();
+# bcfl = TwoAgents.BCFL21();
 # out = TwoAgents.brutal_solution(bcfl; maxiter=2)
