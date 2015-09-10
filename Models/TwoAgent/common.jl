@@ -41,10 +41,14 @@ function BCFL21(;ρ1::Real=-1.0 , α1::Real=-9.0, β1::Real=0.999,
     exog = ConstantVolatility(γ, σ1, σ2, nϵ1, nϵ2)
 
     # state space
-    basis = Basis(SplineParams(collect(linspace(10.0, 40.0, nk1)), 0, 3),
-                  SplineParams(collect(linspace(10.0, 40.0, nk2)), 0, 3),
-                  SplineParams(collect(linspace(0.1 , 12.0, nU)), 0, 3),
-                  LinParams(collect(linspace(0.99, 1.01, nξ)), 0))
+    kmin, kmax = 10., 35.
+    ξmin, ξmax = .97, 1.03
+    Umin = .1
+    Umax = produce(production1, kmax, 1.) + produce(production2, kmax, ξmax)
+    basis = Basis(SplineParams(collect(linspace(kmin, kmax, nk1)), 0, 2),
+                  SplineParams(collect(linspace(kmin, kmax, nk2)), 0, 2),
+                  SplineParams(collect(linspace(Umin , Umax, nU)), 0, 2),
+                  LinParams(collect(linspace(ξmin, ξmax, nξ)), 0))
 
     grid, (_k1grid, _k2grid, _Ugrid, _ξgrid) = nodes(basis)
 
@@ -269,5 +273,5 @@ end
 
 end  # module
 
-bcfl = TwoAgents.BCFL();
-out = TwoAgents.brutal_solution(bcfl)
+# bcfl = TwoAgents.BCFL();
+# out = TwoAgents.brutal_solution(bcfl)
