@@ -229,13 +229,13 @@ function update_J(bcfl::BCFL21, stuff::Array{Float64, 3}, coefs::Vector{Float64}
         # Evaluate value function and its partials at next period's state. This is
         # done at the same time so we only have to compute 7 basis matrices instead
         # of the full 16 we will be using.
-        out = funeval(coefs, bcfl.ss.basis, statep,
+        foobar = funeval(coefs, bcfl.ss.basis, statep,
                       [0 0 0 0; 1 0 0 0; 0 1 0 0; 0 0 1 0])
-        # out will be (4×1×length(gp))
-        Jp    = out[:, 1, 1]
-        dJpk1 = out[:, 1, 2]
-        dJpk2 = out[:, 1, 3]
-        dJpU  = out[:, 1, 4]
+        # foobar will be (4×1×length(gp))
+        Jp    = foobar[:, 1, 1]
+        dJpk1 = foobar[:, 1, 2]
+        dJpk2 = foobar[:, 1, 3]
+        dJpU  = foobar[:, 1, 4]
 
         # Evaluate all expectations
         μ1 = dot(Π, (gp .* Jp).^(α1))^(1.0/α1)
@@ -322,7 +322,7 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
                 println("$i converged.")
                 return out
             else
-                println("$i failed to converged. AHHHHHHHHHH!")
+                println("$i failed. residual norm: $(out.residual_norm)")
                 return out
             end
         end
@@ -332,6 +332,10 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
         jldopen("fooout.jld", "w") do f
             write(f, "out", out)
         end
+        # f = jldopen("fooout.jld", "r")
+        # out = read(f, "out")
+        # close(f)
+
         prev_soln(i::Int) = out[i].zero
 
         J_upd = update_J(bcfl, stuff, coefs, out)
