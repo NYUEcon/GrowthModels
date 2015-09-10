@@ -85,7 +85,6 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     Up = guess[3:end]
     k1, k2, U, ξ = state
 
-
     # Derivative of Adjustment costs
     # NOTE: I am assuming that Γ_i(k_i, I_i) = (1 - δ_i) k_i + I_i
     dΓ1_dI1 = 1.0  # - _dIac(bcfl.ac1, k1, I1)
@@ -125,20 +124,14 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     # TODO: Remove all shows once we are more convinced it is working
     # get consumption
     c1_num   = dJk1 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ1_dk1 * EV11
-    # @show c1_num
     c1_num = c1_num > 0 ? c1_num : abs(c1_num)
     c1_denom = J.^(1-ρ1) * (1-β1) * df1dk1
-    # @show c1_num c1_denom
     c1       = (c1_num/c1_denom)^(1/(ρ1-1))
-    # @show c1
 
     c2_num   = dJk2 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ2_dk2 * EV12
-    # @show c2_num
     c2_num = c2_num > 0 ? c2_num : abs(c2_num)
     c2_denom = -dJU * U.^(1-ρ1) * (1-β2) * df2dk2
-    # @show c2_num c2_denom
     c2       = (c2_num/c2_denom)^(1/(ρ2-1))
-    # @show c2
 
     # c2 = ((-dJU * U^(1-ρ2) * (1-β2)) / (J^(1-ρ1) * (1-β1) * c1^(ρ1-1)))^(1/(ρ2-1))
 
@@ -193,6 +186,74 @@ function initial_coefs(bcfl::BCFL21, bs::BasisStructure)
     return coefs
 end
 
+function update_J(bcfl::BCFL21, stuff::Array{Float64, 3}, out)
+
+    # Unpack parameters
+    ρ1, α1, β1, ρ2, α2, β2, δ1, η1, δ2, η2 = _unpack_params(bcfl)
+    nstates = size(bcfl.ss.grid, 1)
+    J_all = stuff[:, 1, 1]
+    dJk1_all = stuff[:, 1, 2]
+    dJk2_all = stuff[:, 1, 3]
+    dJU_all = stuff[:, 1, 4]
+
+    # Need to return J
+    J = Array(Float64, size(Jp)...)
+
+    for i=1:nstates
+
+        # Pull out states and decisions
+        k1, k2, U, ξ = bcfl.ss.grid_transpose[:, i]
+        I1, I2 = out[i].zero[1:2]
+        Up = out[i].zero[3:end]
+        gp = bcfl.gp[:, i]
+        ξp = bcfl.ss.exog.grip[:, i]
+
+        # Create statep
+        k1p = ((1 - δ1)*k1 + I1) .* gp
+        k2p = ((1 - δ2)*k2 + I2) .* gp
+        statep = [k1p k2p Up ξp]
+
+        # Derivative of Adjustment costs
+        # NOTE: I am assuming that Γ_i(k_i, I_i) = (1 - δ_i) k_i + I_i
+        dΓ1_dI1 = 1.0  # - _dIac(bcfl.ac1, k1, I1)
+        dΓ2_dI2 = 1.0  # - _dIac(bcfl.ac2, k2, I2)
+        dΓ1_dk1 = (1 - δ1)  # - _dkac(bcfl.ac1, k1, I1)
+        dΓ2_dk2 = (1 - δ2)  # - _dkac(bcfl.ac1, k1, I1)
+
+        # MPK for agent 1. Note we set the `z` arg to one b/c we scaled by z1
+        df1dk1 = f_k(bcfl.production1, k1, 1.0)
+        df2dk2 = f_k(bcfl.production2, k2, ξ)
+
+        # Evaluate value function and its partials at next period's state. This is
+        # done at the same time so we only have to compute 7 basis matrices instead
+        # of the full 16 we will be using.
+        out = funeval(coefs, bcfl.ss.basis, statep,
+                      [0 0 0 0; 1 0 0 0; 0 1 0 0; 0 0 1 0])
+        # out will be (4×1×length(gp))
+        Jp    = out[:, 1, 1]
+        dJpk1 = out[:, 1, 2]
+        dJpk2 = out[:, 1, 3]
+        dJpU  = out[:, 1, 4]
+
+        # Evaluate all expectations
+        μ1 = dot(Π, (gp .* Jp).^(α1))^(1.0/α1)
+        μ2 = dot(Π, (gp .* Up).^(α2))^(1.0/α2)
+        EV11 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk1)
+        EV12 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk2)
+
+        # Get consumption values
+        c1_num = dJk1 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ1_dk1 * EV11
+        c1_num = c1_num > 0 ? c1_num : abs(c1_num)
+        c1_denom = J.^(1-ρ1) * (1-β1) * df1dk1
+        c1 = (c1_num/c1_denom)^(1/(ρ1-1))
+
+        J[i] = utility(bcfl.agent1, c1, μ1)
+
+    end
+
+    return J
+end
+
 function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
 
     # Unpack parameters.
@@ -217,6 +278,8 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
 
     local out
     while dist > tol && iter < maxiter
+        # Increment counter
+        iter += 1
 
         stuff = funeval(coefs, bs, [0 0 0 0; 1 0 0 0; 0 1 0 0; 0 0 1 0])
         J_all    = stuff[:, 1, 1]
@@ -259,19 +322,26 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
             end
         end
 
-        out = pmap(ssi, 1:size(bcfl.ss.grid, 1))
-
         # update prev_soln function -- use solution found on this iteration
+        out = pmap(ssi, 1:size(bcfl.ss.grid, 1))
         prev_soln(i::Int) = out[i].zero
 
-       dist = 0.0  # yay, we are done!
+        J_upd = update_J(bcfl, stuff, out)
+        dist = maxabs(J_all - J_upd)
+
+        println("Hallelujah! Finished iteration $iter")
+
+        # Update coefficients
+        coefs = CompEcon.get_coefs(bcfl.ss.basis, bs, J_upd)
     end
 
     out
-
 end
 
 end  # module
 
+# include("common.jl")
+# addprocs(3)
+# @everywhere include("common.jl")
 # bcfl = TwoAgents.BCFL();
-# out = TwoAgents.brutal_solution(bcfl)
+# out = TwoAgents.brutal_solution(bcfl; maxiter=2)
