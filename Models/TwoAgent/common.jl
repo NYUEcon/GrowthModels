@@ -197,7 +197,7 @@ function update_J(bcfl::BCFL21, stuff::Array{Float64, 3}, out)
     dJU_all = stuff[:, 1, 4]
 
     # Need to return J
-    J = Array(Float64, size(Jp)...)
+    J = Array(Float64, nstates)
 
     for i=1:nstates
 
@@ -243,7 +243,10 @@ function update_J(bcfl::BCFL21, stuff::Array{Float64, 3}, out)
 
         # Get consumption values
         c1_num = dJk1 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ1_dk1 * EV11
-        c1_num = c1_num > 0 ? c1_num : abs(c1_num)
+        if c1_num < 0
+            warn("c1_num negative in state $i. Taking abs")
+            c1_num = abs(c1_num)
+        end
         c1_denom = J.^(1-ρ1) * (1-β1) * df1dk1
         c1 = (c1_num/c1_denom)^(1/(ρ1-1))
 
@@ -265,18 +268,19 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
                         [0 0 0 0; 1 0 0 0; 0 1 0 0; 0 0 1 0])
 
     coefs = initial_coefs(bcfl, bs)
-
     Nϵ = size(bcfl.gp, 1)
 
-    # give bogus thing here. mean(coefs) ≈ mean(J) (within 1e-2)
-    i1 = (δ1 - 1).*bcfl.ss.grid[:, 1] .+ (bcfl.ss.grid[:, 1] .+ bcfl.ss.grid[:, 2])./(bcfl.ss.grid[:, 4] + 1)
-    i2 = (bcfl.ss.grid[:, 1].*bcfl.ss.grid[:, 4] + bcfl.ss.grid[:, 2].*(δ2*bcfl.ss.grid[:, 4] + δ2 - 1.)) ./ (bcfl.ss.grid[:, 4] + 1)
-    prev_soln(i::Int) = [i1[i]; i2[i]; fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
-    # prev_soln(i::Int) = [0.025*bcfl.ss.grid_transpose[1, i];
-    #                      0.025*bcfl.ss.grid_transpose[2, i];
-    #                      fill(bcfl.ss.grid_transpose[3, i], Nϵ)]
+    # extract grids to ease notation
+    k1_grid = bcfl.ss.grid[:, 1]
+    k2_grid = bcfl.ss.grid[:, 2]
+    U_grid = bcfl.ss.grid[:, 3]
+    ξ = bcfl.ss.grid[:, 4]
 
-    local out
+    i1 = (δ1-1).*k1_grid .+ (k1_grid .+ k2_grid)./(ξ_grid + 1)
+    i2 = (k1_grid.*ξ_grid + k2_grid.*(δ2*ξ_grid + δ2 - 1.)) ./ (ξ_grid + 1)
+    prev_soln(i::Int) = [i1[i]; i2[i]; fill(U_grid[i], Nϵ)]
+
+    local out  # declare out local so we can return it outside while
     while dist > tol && iter < maxiter
         # Increment counter
         iter += 1
@@ -308,7 +312,6 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
                                     ξp, x, fvec)
             end
 
-            @show i
             lb = [-state[1], -state[2], 0., 0., 0., 0.]
             ub = [Inf, Inf, Inf, Inf, Inf, Inf]
             out = mcpsolve(f!, lb, ub, guess, factor=.025)
