@@ -216,7 +216,7 @@ function initial_coefs(bcfl::BCFL21, bs::BasisStructure)
 end
 
 function create_jld_output_file()
-    out_dir = joinpath(@__FILE__, "output")
+    out_dir = joinpath(dirname(@__FILE__), "output")
     !isdir(out_dir) && mkdir(out_dir)
 
     matches = filter(x->x != nothing,
