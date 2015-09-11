@@ -116,3 +116,4 @@ space/build/
 bin/
 *.tags*
 auto/
+Models/OneAgent/OneGood/RecursivePref/StochasticVolatility/figures/

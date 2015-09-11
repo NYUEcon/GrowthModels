@@ -284,7 +284,7 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
         prev_soln(i::Int) = all_sfs[i].result.zero
 
         new_J = Float64[s.J for s in all_sfs]
-        dist = maxabs(J_all - J_upd)
+        dist = maxabs(J_all - new_J)
 
         println("Hallelujah! Finished iteration $iter")
 
