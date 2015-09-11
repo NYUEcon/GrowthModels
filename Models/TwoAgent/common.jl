@@ -7,6 +7,13 @@ using NLsolve
 include("../ModelAbstraction.jl")
 using .ModelAbstraction
 
+immutable SolutionForState
+    c1::Float64
+    c2::Float64
+    J::Float64
+    result::NLsolve.SolverResults{Float64}
+end
+
 immutable BCFL21
     agent1::EpsteinZinAgent
     agent2::EpsteinZinAgent
@@ -156,7 +163,12 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
         resid[i+2] = lhs - rhs
     end
 
-    return resid
+    J = utility(bcfl.agent1, c1, μ1)
+
+    # we are safe to return whatever we want because NLsolve just cares that
+    # we update resid in place and completely ignores the return value of this
+    # function
+    return c1, c2, J
 end
 
 function initial_coefs(bcfl::BCFL21, bs::BasisStructure)
@@ -185,78 +197,6 @@ function initial_coefs(bcfl::BCFL21, bs::BasisStructure)
     coefs = CompEcon.get_coefs(bcfl.ss.basis, bs, J)
 
     return coefs
-end
-
-function update_J(bcfl::BCFL21, stuff::Array{Float64, 3}, coefs::Vector{Float64}, out)
-
-    # Unpack parameters
-    ρ1, α1, β1, ρ2, α2, β2, δ1, η1, δ2, η2 = _unpack_params(bcfl)
-    Π = bcfl.exog.Π
-    nstates = size(bcfl.ss.grid, 1)
-    J_all = stuff[:, 1, 1]
-    dJk1_all = stuff[:, 1, 2]
-    dJk2_all = stuff[:, 1, 3]
-    dJU_all = stuff[:, 1, 4]
-
-    # Need to return J
-    J = Array(Float64, nstates)
-
-    for i=1:nstates
-
-        # Pull out states and decisions
-        k1, k2, U, ξ = bcfl.ss.grid_transpose[:, i]
-        I1, I2 = out[i].zero[1:2]
-        Up = out[i].zero[3:end]
-        gp = bcfl.gp[:, i]
-        ξp = bcfl.ss.exog[1].gridp[:, i]
-
-        # Create statep
-        k1p = ((1 - δ1)*k1 + I1) .* gp
-        k2p = ((1 - δ2)*k2 + I2) .* gp
-        statep = [k1p k2p Up ξp]
-
-        # Derivative of Adjustment costs
-        # NOTE: I am assuming that Γ_i(k_i, I_i) = (1 - δ_i) k_i + I_i
-        dΓ1_dI1 = 1.0  # - _dIac(bcfl.ac1, k1, I1)
-        dΓ2_dI2 = 1.0  # - _dIac(bcfl.ac2, k2, I2)
-        dΓ1_dk1 = (1 - δ1)  # - _dkac(bcfl.ac1, k1, I1)
-        dΓ2_dk2 = (1 - δ2)  # - _dkac(bcfl.ac1, k1, I1)
-
-        # MPK for agent 1. Note we set the `z` arg to one b/c we scaled by z1
-        df1dk1 = f_k(bcfl.production1, k1, 1.0)
-        df2dk2 = f_k(bcfl.production2, k2, ξ)
-
-        # Evaluate value function and its partials at next period's state. This is
-        # done at the same time so we only have to compute 7 basis matrices instead
-        # of the full 16 we will be using.
-        foobar = funeval(coefs, bcfl.ss.basis, statep,
-                      [0 0 0 0; 1 0 0 0; 0 1 0 0; 0 0 1 0])
-        # foobar will be (4×1×length(gp))
-        Jp    = foobar[:, 1, 1]
-        dJpk1 = foobar[:, 1, 2]
-        dJpk2 = foobar[:, 1, 3]
-        dJpU  = foobar[:, 1, 4]
-
-        # Evaluate all expectations
-        μ1 = dot(Π, (gp .* Jp).^(α1))^(1.0/α1)
-        μ2 = dot(Π, (gp .* Up).^(α2))^(1.0/α2)
-        EV11 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk1)
-        EV12 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk2)
-
-        # Get consumption values
-        c1_num = dJk1 - β1 * J^(1-ρ1) * μ1^(ρ1-α1) * dΓ1_dk1 * EV11
-        if c1_num < 0
-            warn("c1_num negative in state $i. Taking abs")
-            c1_num = abs(c1_num)
-        end
-        c1_denom = J.^(1-ρ1) * (1-β1) * df1dk1
-        c1 = (c1_num/c1_denom)^(1/(ρ1-1))
-
-        J[i] = utility(bcfl.agent1, c1, μ1)
-
-    end
-
-    return J
 end
 
 function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
@@ -316,35 +256,40 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
 
             lb = [-state[1], -state[2], 0., 0., 0., 0.]
             ub = [Inf, Inf, Inf, Inf, Inf, Inf]
-            out = mcpsolve(f!, lb, ub, guess, factor=.025)
+            soln = mcpsolve(f!, lb, ub, guess, factor=.025)
 
-            if out.f_converged
+            # now call the function one more time to get c1, c2, J. Use
+            # the already allocated guess vector as the resid buffer that will
+            # be changed but ignored by us
+            out = SolutionForState(f!(soln.zero, guess)..., soln)
+
+
+            if soln.f_converged
                 println("$i converged.")
-                return out
             else
                 println("$i failed. residual norm: $(out.residual_norm)")
-                return out
             end
+            return out
         end
 
         # update prev_soln function -- use solution found on this iteration
-        out = pmap(ssi, 1:size(bcfl.ss.grid, 1))
+        all_sfs = pmap(ssi, 1:size(bcfl.ss.grid, 1))
         jldopen("fooout.jld", "w") do f
-            write(f, "out", out)
+            write(f, "all_sfs", all_sfs)
         end
         # f = jldopen("fooout.jld", "r")
-        # out = read(f, "out")
+        # all_sfs = read(f, "all_sfs")
         # close(f)
 
-        prev_soln(i::Int) = out[i].zero
+        prev_soln(i::Int) = all_sfs[i].result.zero
 
-        J_upd = update_J(bcfl, stuff, coefs, out)
+        new_J = Float64[s.J for s in all_sfs]
         dist = maxabs(J_all - J_upd)
 
         println("Hallelujah! Finished iteration $iter")
 
         # Update coefficients
-        coefs = CompEcon.get_coefs(bcfl.ss.basis, bs, J_upd)
+        coefs = CompEcon.get_coefs(bcfl.ss.basis, bs, new_J)
     end
 
     out
