@@ -93,6 +93,21 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     Up = guess[3:end]
     k1, k2, U, ξ = state
 
+    # Force the constraints I want!!! RAWRRRRRR
+    if any(Up .< 0)
+        # @show Up statep
+        resid[:] = 1e6
+        return NaN, NaN, NaN
+    end
+    if -I1 > k1
+        resid[:] = 1e6
+        return NaN, NaN, NaN
+    end
+    if -I2 > k2
+        resid[:] = 1e6
+        return NaN, NaN, NaN
+    end
+
     # Derivative of Adjustment costs
     # NOTE: I am assuming that Γ_i(k_i, I_i) = (1 - δ_i) k_i + I_i
     dΓ1_dI1 = 1.0  # - _dIac(bcfl.ac1, k1, I1)
@@ -124,6 +139,7 @@ function compute_residuals!(bcfl::BCFL21, state::Vector{Float64}, J::Float64,
     if any(Jp .< 0)
         @show Jp statep
     end
+
     μ1 = dot(Π, (gp .* Jp).^(α1))^(1.0/α1)
     μ2 = dot(Π, (gp .* Up).^(α2))^(1.0/α2)
     EV11 = dot(Π, (gp .* Jp).^(α1 - 1.) .* dJpk1)
@@ -254,9 +270,9 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
                                     ξp, x, fvec)
             end
 
-            lb = [-state[1], -state[2], 0., 0., 0., 0.]
-            ub = [Inf, Inf, Inf, Inf, Inf, Inf]
-            soln = mcpsolve(f!, lb, ub, guess, factor=.025)
+            # lb = [-state[1], -state[2], 0., 0., 0., 0.]
+            # ub = [Inf, Inf, Inf, Inf, Inf, Inf]
+            soln = nlsolve(f!, guess, factor=.025)
 
             # now call the function one more time to get c1, c2, J. Use
             # the already allocated guess vector as the resid buffer that will
