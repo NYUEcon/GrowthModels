@@ -267,7 +267,7 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
             if soln.f_converged
                 println("$i converged.")
             else
-                println("$i failed. residual norm: $(out.residual_norm)")
+                println("$i failed. residual norm: $(soln.residual_norm)")
             end
             return out
         end
