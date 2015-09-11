@@ -215,6 +215,27 @@ function initial_coefs(bcfl::BCFL21, bs::BasisStructure)
     return coefs
 end
 
+function create_jld_output_file()
+    out_dir = joinpath(@__FILE__, "output")
+    !isdir(out_dir) && mkdir(out_dir)
+
+    matches = filter(x->x != nothing,
+                     map(x->match(r"(\d+$)", split(x, ".")[1]),
+                     filter(x->endswith(x, ".jld"),
+                     readdir(out_dir))))
+    if isempty(matches)
+        num = 1
+    else
+        num = maximum(Int[parse(Int, m[1]) for m in matches]) + 1
+    end
+
+    fn = joinpath(out_dir, "results$(num).jld")
+    jldopen(fn, "w") do f
+        nothing
+    end
+    return fn
+end
+
 function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
 
     # Unpack parameters.
@@ -238,7 +259,9 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
     i2 = (k1_grid.*ξ_grid + k2_grid.*(δ2*ξ_grid + δ2 - 1.)) ./ (ξ_grid + 1)
     prev_soln(i::Int) = [i1[i]; i2[i]; fill(U_grid[i], Nϵ)]
 
-    local out  # declare out local so we can return it outside while
+    result_fn = create_jld_output_file()
+
+    local all_sfs  # declare out local so we can return it outside while
     while dist > tol && iter < maxiter
         # Increment counter
         iter += 1
@@ -252,7 +275,7 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
         # function to solve state i
         function ssi(i)
             # prep function for nlsolve
-            guess = prev_soln(i)  # TODO
+            guess = prev_soln(i)
             resid = similar(guess)
             state = bcfl.ss.grid_transpose[:, i]
             J = J_all[i]
@@ -261,6 +284,7 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
             dJU = dJU_all[i]
             gp = bcfl.gp[:, i]
             ξp = bcfl.ss.exog[1].gridp[:, i]
+
 
             # TODO: performance will probably be significantly better if we can outsourse
             #       most of the guts of compute_residuals! elsewhere. Othwerwise we
@@ -274,41 +298,47 @@ function brutal_solution(bcfl::BCFL21; tol=1e-4, maxiter=500)
             # ub = [Inf, Inf, Inf, Inf, Inf, Inf]
             soln = nlsolve(f!, guess, factor=.025)
 
+            if maxabs(soln.initial_x - guess) > 1e-12
+                println("Sebastian changed our guess on state $i")
+            end
+
             # now call the function one more time to get c1, c2, J. Use
             # the already allocated guess vector as the resid buffer that will
             # be changed but ignored by us
             out = SolutionForState(f!(soln.zero, guess)..., soln)
 
-
             if soln.f_converged
-                println("$i converged.")
+                print("  $i converged.")
             else
-                println("$i failed. residual norm: $(soln.residual_norm)")
+                println("\n$i failed. residual norm: $(soln.residual_norm)")
             end
             return out
         end
 
-        # update prev_soln function -- use solution found on this iteration
-        all_sfs = pmap(ssi, 1:size(bcfl.ss.grid, 1))
-        jldopen("fooout.jld", "w") do f
-            write(f, "all_sfs", all_sfs)
-        end
-        # f = jldopen("fooout.jld", "r")
-        # all_sfs = read(f, "all_sfs")
-        # close(f)
+        # if iter == 1
+        #     all_sfs = jldopen(result_fn, "r+") do f
+        #         read(f, "all_sfs_1")
+        #     end
+        # else
+
+            all_sfs = pmap(ssi, 1:size(bcfl.ss.grid, 1))
+            jldopen(result_fn, "r+") do f
+                write(f, "all_sfs_$iter", all_sfs)
+            end
+        # end
 
         prev_soln(i::Int) = all_sfs[i].result.zero
 
         new_J = Float64[s.J for s in all_sfs]
         dist = maxabs(J_all - new_J)
 
-        println("Hallelujah! Finished iteration $iter")
+        println("Hallelujah! Finished iteration $iter. dist: $dist")
 
         # Update coefficients
         coefs = CompEcon.get_coefs(bcfl.ss.basis, bs, new_J)
     end
 
-    out
+    all_sfs
 end
 
 end  # module
