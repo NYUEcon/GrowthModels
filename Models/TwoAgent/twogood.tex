@@ -16,16 +16,16 @@
 
 \begin{document}
 
-The Lagrangian is
+The Lagrangian is (note we are maximizing over $\biggm\{ \{c_{i, t}(s^t) \}, \{i_{i, t}(s^t)\}, \{k_{i, t}(s^t\} \biggm\}_{i=1, 2}$)
 
 \begin{alignat}{2} \label{eq:lagrangian}
-  \mathcal{L} &= \mu_{1,0} V_{1,0} + \mu_{2,0} V_{2,0} + \sum_{t=0}^{\infty} E_t & \biggm \{
-  &\lambda_{1,t} \left( G_1(a_{1,t}, b_{1,t}) - c_{1,t} \right) + \notag \\
-  & & &\lambda_{2,t} \left( G_2(a_{2,t}, b_{2,t}) - c_{2,t} \right) + \notag \\
-  & & &\lambda_{3,t} \left( Y_1(k_{1,t},1) - a_{1,t} - a_{2,t} - i_{1,a,t} - i_{2,a,t} \right) + \notag \\
-  & & &\lambda_{4,t} \left( Y_2(k_{2,t}, \xi) - b_{1,t} - b_{2,t} - i_{1,b,t} - i_{2,b,t} \right) + \notag \\
-  & & &\lambda_{5,t} \left( (1-\delta_1)k_{1,t} + H_1 \left(i_{1,a,t}, i_{1,b,t} \right) - g_{t+1}'k_{1,t+1} \right) + \notag \\
-  & & &\lambda_{6,t} \left( (1-\delta_2)k_{2,t} + H_2 \left(i_{2,a,t}, i_{2,b,t} \right) - g_{t+1}'k_{2,t+1} \right) + \notag \\
+  \mathcal{L} &= \mu_{1,0} V_{1,0} + \mu_{2,0} V_{2,0} + \sum_{t=0}^{\infty} \sum_{s^t} & \biggm \{
+  &\lambda_{1, t, s^t} \left( G_1(a_{1,t}, b_{1,t}) - c_{1,t} \right) + \notag \\
+  & & &\lambda_{2, t, s^t} \left( G_2(a_{2,t}, b_{2,t}) - c_{2,t} \right) + \notag \\
+  & & &\lambda_{3, t, s^t} \left( Y_1(k_{1,t},1) - a_{1,t} - a_{2,t} - i_{1,a,t} - i_{2,a,t} \right) + \notag \\
+  & & &\lambda_{4, t, s^t} \left( Y_2(k_{2,t}, \xi) - b_{1,t} - b_{2,t} - i_{1,b,t} - i_{2,b,t} \right) + \notag \\
+  & & &\lambda_{5, t, s^t} \left( (1-\delta_1)k_{1,t-1} + H_1 \left(i_{1,a,t-1}, i_{1,b,t-1} \right) - g_{t}(s^t) k_{1,t} \right) + \notag \\
+  & & &\lambda_{6, t, s^t} \left( (1-\delta_2)k_{2,t-1} + H_2 \left(i_{2,a,t-1}, i_{2,b,t-1} \right) - g_{t}(s^t) k_{2,t} \right) + \notag \\
    && \biggm\}
 \end{alignat}
 
