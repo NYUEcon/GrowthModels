@@ -1,0 +1,98 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+
+% partial derivative as a fraction
+\newcommand{\fracpd}[2]{
+  \ensuremath{\frac{\partial #1}{\partial #2}}
+}
+
+% fraction with parenthesis around it
+\newcommand{\pfrac}[2]{
+  \ensuremath{ \left( \frac{#1}{#2} \right)}
+}
+
+
+
+\begin{document}
+
+The FOC are
+
+\begin{alignat}{2}
+  c_{1,t} : \quad   & \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}} \fracpd{V_{1,t}}{c_{1,t}} & &= \lambda_{1,t} \label{eq:c1} \\
+  a_{1,t} : \quad   & \fracpd{G_1(a_{1,t}, b_{1,t})}{a_{1,t}} \lambda_{1,t} & &= \lambda_{3,t} \label{eq:a1} \\
+  b_{1,t} : \quad   & \fracpd{G_1(a_{1,t}, b_{1,t})}{b_{1,t}} \lambda_{1,t} & &= \lambda_{4,t} \label{eq:b1} \\
+  i_{1,a,t} : \quad & \fracpd{H_1(i_{1,a,t}, i_{1,b,t})}{i_{1,a,t}} \lambda_{5,t} & &= \lambda_{3,t} \label{eq:i1a} \\
+  i_{1,b,t} : \quad & \fracpd{H_1(i_{1,a,t}, i_{1,b,t})}{i_{1,b,t}} \lambda_{5,t} & &= \lambda_{4,t} \label{eq:i1b} \\
+  c_{2,t} : \quad   & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}} \fracpd{V_{2,t}}{c_{2,t}}  & &= \lambda_{2,t} \label{eq:c2} \\
+  a_{2,t} : \quad   & \fracpd{G_2(a_{2,t}, b_{2,t})}{a_{2,t}} \lambda_{2,t} & &= \lambda_{3,t} \label{eq:a2} \\
+  b_{2,t} : \quad   & \fracpd{G_2(a_{2,t}, b_{2,t})}{b_{2,t}} \lambda_{2,t} & &= \lambda_{4,t} \label{eq:b2} \\
+  i_{2,a,t} : \quad & \fracpd{H_2(i_{2,a,t}, i_{2,b,t})}{i_{2,a,t}} \lambda_{6,t} & &= \lambda_{3,t} \label{eq:i2a} \\
+  i_{2,b,t} : \quad & \fracpd{H_2(i_{2,a,t}, i_{2,b,t})}{i_{2,b,t}} \lambda_{6,t} & &= \lambda_{4,t} \label{eq:i2b}
+\end{alignat}
+
+We can combine \eqref{eq:c1} and \eqref{eq:a1} to obtain
+
+\begin{align} \label{eq:no_lambda1_1}
+  \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}} \fracpd{V_{1,t}}{c_{1,t}} \fracpd{G_1(a_{1,t}, b_{1,t})}{a_{1,t}} = \lambda_{3,t}.
+\end{align}
+
+Similarly, \eqref{eq:c2} and \eqref{eq:a2} give
+
+\begin{align} \label{eq:no_lambda1_2}
+  \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}} \fracpd{V_{2,t}}{c_{2,t}} \fracpd{G_2(a_{2,t}, b_{2,t})}{a_{2,t}} = \lambda_{3,t}.
+\end{align}
+
+Together \eqref{eq:no_lambda1_1} and \eqref{eq:no_lambda1_2} give
+
+\begin{align} \label{eq:mu0_ratio}
+  \frac{\mu_{1,0}}{\mu_{2,0}} &= \frac{\fracpd{V_{2,0}}{V_{2,t}} \fracpd{V_{2,t}}{c_{2,t}} \fracpd{G_2(a_{2,t}, b_{2,t})}{a_{2,t}}}{\fracpd{V_{1,0}}{V_{1,t}} \fracpd{V_{1,t}}{c_{1,t}} \fracpd{G_1(a_{1,t}, b_{1,t})}{a_{1,t}}}.
+\end{align}
+
+Now we define an ad hoc time $t$ Pareto weight:
+
+\begin{align} \label{eq:mu_t}
+  \mu_{i,t} &= \mu_{i,0} \fracpd{V_{i,0}}{V_{i,t}} \fracpd{V_{i,t}}{c_{i,t}} c_{i,t} \notag \\
+  &= \mu_{i,t-1} \fracpd{V_{i,t-1}}{V_{i,t}} \frac{\partial V_{i,t}/ \partial c_{i,t}}{\partial V_{i,t-1}/ \partial c_{i,t-1}} \frac{c_{i,t}}{c_{i,t-1}} \\
+  &= \mu_{i,t-1} M_t \frac{c_{i,t}}{c_{i,t-1}}
+\end{align}
+
+where we have used the chain rule to write $\fracpd{V_{i,0}}{V_{i,t}} = \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}}$ and have used
+
+\begin{align} \label{eq:MRS}
+  M_{i,t+1} &= \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \\
+  &= \beta \left( \frac{c_{i,t+1}}{c_{i,t}}\right)^{\rho - 1} \left( \frac{V_{i,t+1}}{E \left[ V_{i,t+1}^{\alpha} \right]^{\alpha}} \right)^{\alpha - \rho}
+\end{align}
+
+We can combine \eqref{eq:mu_t} with \eqref{eq:mu0_ratio} to get
+
+\begin{align} \label{eq:foobar}
+  \frac{1}{c_{1,t}} \mu_{1,t} \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{a_{1,t}} = \frac{1}{c_{2,t}} \mu_{2,t} \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{a_{2,t}}
+\end{align}
+
+Define $S_t = \frac{\mu_{1,t}}{\mu_{2,t}}$ and write \eqref{eq:foobar} as
+
+\begin{align} \label{eq:a_allocation}
+  S_t \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{a_{1,t}} \frac{1}{c_{1,t}} &= \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{a_{2,t}} \frac{1}{c_{2,t}}.
+\end{align}
+
+We can also use \eqref{eq:mu_t} for both agents to write:
+
+\begin{align} \label{eq:S_recursion}
+  S_t = S_{t-1} \frac{M_{1,t}}{M_{2,t}} \frac{c_{1,t}/c_{1,t-1}}{c_{2,t}/c_{2,t-1}}.
+\end{align}
+
+Following the same steps we can write the marginal condition for good $b$ as
+
+\begin{align} \label{eq:b_allocation}
+  S_t \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{b_{1,t}} \frac{1}{c_{1,t}} &= \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{b_{2,t}} \frac{1}{c_{2,t}}.
+\end{align}
+
+\subsection{Investment terms} \label{sub:Investment terms}
+
+TODO: determine why They write C5 and C6 lagged one period. Do we need to do this also? If so, why. If not, why not?
+
+
+
+
+\end{document}
