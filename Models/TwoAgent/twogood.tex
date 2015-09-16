@@ -38,12 +38,12 @@ The control variables are: $\left\{a_{n}(s^t), b_{n}(s^t), i_{n,a}(s^t), i_{n,b}
   b_{1}(s^t)   : \quad & \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}}\fracpd{V_{1,t}}{c_{1,t}} \fracpd{c_{1,t}}{b_{t,1}} &= \lambda_{2}(s^t) \label{eq:foc_b1} \\
   i_{1,a}(s^t) : \quad & \sum_{s^{t+1}} \lambda_3(s^{t+1}) \fracpd{H_1(i_{1,a}(s^t),i_{1,b}(s^t)))}{i_{1,a}(s^t)} &= \lambda_1(s^t) \label{eq:foc_i1a} \\
   i_{1,b}(s^t) : \quad & \sum_{s^{t+1}} \lambda_3(s^{t+1}) \fracpd{H_1(i_{1,a}(s^t),i_{1,b}(s^t)))}{i_{1,b}(s^t)} &= \lambda_2(s^t)\label{eq:foc_i1b} \\
-  \chi_{1}(s^t): \quad & \lambda_1(s^t) \fracpd{Y_1(\chi_{1,t}/g_t, 1)}{(\chi_{1,t} g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_3(s^{t+1}) &= \lambda_3(s^t) \label{eq:foc_chi1} \\
+  \chi_{1}(s^t): \quad & \lambda_1(s^t) \fracpd{Y_1(\chi_{1,t}/g_t, 1)}{(\chi_{1,t}/g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_3(s^{t+1}) &= \lambda_3(s^t) \label{eq:foc_chi1} \\
   a_{2}(s^t)   : \quad & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}}\fracpd{V_{2,t}}{c_{2,t}} \fracpd{c_{2,t}}{a_{t,2}} &= \lambda_{1}(s^t)\label{eq:foc_a2} \\
   a_{2}(s^t)   : \quad & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}}\fracpd{V_{2,t}}{c_{2,t}} \fracpd{c_{2,t}}{b_{t,2}} &= \lambda_{2}(s^t)\label{eq:foc_b2} \\
   i_{2,a}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{4,a}(s^t),i_{4,b}(s^t)))}{i_{4,a}(s^t)} &= \lambda_1(s^t) \label{eq:foc_i2a} \\
   i_{2,b}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{4,a}(s^t),i_{4,b}(s^t)))}{i_{4,b}(s^t)} &= \lambda_2(s^t)\label{eq:foc_i2b} \\
-  \chi_{2}(s^t): \quad & \lambda_2(s^t) \fracpd{Y_2(\chi_{2,t}/g_t, 1)}{(\chi_{2,t} g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_4(s^{t+1}) &= \lambda_4(s^t) \label{eq:foc_chi2}
+  \chi_{2}(s^t): \quad & \lambda_2(s^t) \fracpd{Y_2(\chi_{2,t}/g_t, 1)}{(\chi_{2,t}/g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_4(s^{t+1}) &= \lambda_4(s^t) \label{eq:foc_chi2}
 \end{alignat}
 
 Before proceeding, we will gather some tools we will use while analyzing the above conditions. First, notice that by the chain rule we have
