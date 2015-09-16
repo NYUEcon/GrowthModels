@@ -16,6 +16,8 @@
 
 \begin{document}
 
+\section{Model}
+
 \textit{About notation} Without loss of generality when I write $x_t$ I really mean $x(s^t)$. When the history dependence is potentially unclear, I will it out in longer form.
 
 The Lagrangian is
@@ -31,6 +33,8 @@ The Lagrangian is
 
 where $c_{i,t} = G_i(a_{i,t}, b_{i,t})$ and $\chi_{i,t} = g(s^t) k_i(s^t)$ for $i=1,2$ and $t=0, 1, \dots, \infty$.
 
+\section{FOC}
+
 The control variables are: $\left\{a_{n}(s^t), b_{n}(s^t), i_{n,a}(s^t), i_{n,b}(s^t), \chi_{n}(s^t) \right\}$ for $t=0,1,\dots, \infty$, $n \in {1,2}$, and all histories of states $s^t$. The FONC are
 
 \begin{alignat}{2}
@@ -41,50 +45,80 @@ The control variables are: $\left\{a_{n}(s^t), b_{n}(s^t), i_{n,a}(s^t), i_{n,b}
   \chi_{1}(s^t): \quad & \lambda_1(s^t) \fracpd{Y_1(\chi_{1,t}/g_t, 1)}{(\chi_{1,t}/g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_3(s^{t+1}) &= \lambda_3(s^t) \label{eq:foc_chi1} \\
   a_{2}(s^t)   : \quad & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}}\fracpd{V_{2,t}}{c_{2,t}} \fracpd{c_{2,t}}{a_{t,2}} &= \lambda_{1}(s^t)\label{eq:foc_a2} \\
   a_{2}(s^t)   : \quad & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}}\fracpd{V_{2,t}}{c_{2,t}} \fracpd{c_{2,t}}{b_{t,2}} &= \lambda_{2}(s^t)\label{eq:foc_b2} \\
-  i_{2,a}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{4,a}(s^t),i_{4,b}(s^t)))}{i_{4,a}(s^t)} &= \lambda_1(s^t) \label{eq:foc_i2a} \\
-  i_{2,b}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{4,a}(s^t),i_{4,b}(s^t)))}{i_{4,b}(s^t)} &= \lambda_2(s^t)\label{eq:foc_i2b} \\
+  i_{2,a}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{2,a}(s^t),i_{2,b}(s^t)))}{i_{4,a}(s^t)} &= \lambda_1(s^t) \label{eq:foc_i2a} \\
+  i_{2,b}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{2,a}(s^t),i_{2,b}(s^t)))}{i_{4,b}(s^t)} &= \lambda_2(s^t)\label{eq:foc_i2b} \\
   \chi_{2}(s^t): \quad & \lambda_2(s^t) \fracpd{Y_2(\chi_{2,t}/g_t, 1)}{(\chi_{2,t}/g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_4(s^{t+1}) &= \lambda_4(s^t) \label{eq:foc_chi2}
 \end{alignat}
 
-Before proceeding, we will gather some tools we will use while analyzing the above conditions. First, notice that by the chain rule we have
+\section{Algebra} \label{sec:algebra}
 
-\begin{align} \label{eq:chain_derivs}
-  \fracpd{V_{i,0}}{V_{i,t}} = \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}}.
-\end{align}
+  \subsection{Definitions} \label{sub:definitions}
 
-The notice that we can write the SDF for agent $i$ as
+  Before proceeding, we will gather some tools we will use while analyzing the above conditions. First, notice that by the chain rule we have
 
-\begin{align*}
-  M_{i,t+1} &= \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \\
-  &= \beta \left( \frac{C_{t+1}}{C_t} \right)^{\rho - 1} \left( \frac{V_{i,t+1}}{E \left[ V_{i,t+1}^{\alpha} \right]^{1/\alpha}} \right)^{\alpha-\rho}.
-\end{align*}
+  \begin{align} \label{eq:chain_derivs}
+    \fracpd{V_{i,0}}{V_{i,t}} = \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}}.
+  \end{align}
 
-We will also write stochastic discount factor in $a$ and $b$ units as follows:
+  The notice that we can write the SDF for agent $i$ as
+
+  \begin{align*}
+    M_{i,t+1} &= \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \\
+    &= \beta \left( \frac{C_{t+1}}{C_t} \right)^{\rho - 1} \left( \frac{V_{i,t+1}}{E \left[ V_{i,t+1}^{\alpha} \right]^{1/\alpha}} \right)^{\alpha-\rho}.
+  \end{align*}
+
+  We will also write stochastic discount factor in $a$ and $b$ units as follows:
 
 
 
-We will make use of the time $t$ Pareto weight, which we define as
+  We will make use of the time $t$ Pareto weight, which we define as
 
-\begin{align} \label{eq:defn_pareto_weight}
-  \mu_{i,t} &= \mu_{i,0} \fracpd{V_{i,0}}{V_{i,t}} \fracpd{V_{i,t}}{c_{i,t}} \notag \\
-  &= \mu_{i,0} \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}} \fracpd{V_{i,t}}{c_{i,t}} \notag  \\
-  &= \mu_{i,t-1} \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \notag \\
-  &= \mu_{i, t-1} M_{i,t}
-\end{align}
+  \begin{align} \label{eq:defn_pareto_weight}
+    \mu_{i,t} &= \mu_{i,0} \fracpd{V_{i,0}}{V_{i,t}} \fracpd{V_{i,t}}{c_{i,t}} \notag \\
+    &= \mu_{i,0} \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}} \fracpd{V_{i,t}}{c_{i,t}} \notag  \\
+    &= \mu_{i,t-1} \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \notag \\
+    &= \mu_{i, t-1} M_{i,t}
+  \end{align}
 
-We can take \eqref{eq:foc_i1a} and turn it into
+  We will also work with the variable, $S_t = \frac{\mu_{1,t}}{\mu_{2,t}}$, which according to \eqref{eq:defn_pareto_weight} can be written recursively as
 
-\begin{align*}
-  \frac{1}{\fracpd{H_1(i_{1, a}(s^t), i_{1, b}(s^t)}{i_{1, a}(s^t)}} &= E \left[ M_{1, t+1} P_{k, t+1} \right]
-\end{align*}
+  \begin{align*}
+    S_t &= S_{t-1} \frac{M_{1,t-1}}{M_{2,t-1}}
+  \end{align*}
 
-We can also transform \eqref{eq:foc_chi1} to
+  \subsection{Working with FOC} \label{sub:Working_with_foc}
 
-\begin{align*}
-  P_{k, t} &= \fracpd{Y(\chi_{1, t} / g(s^t))}{\chi_{1, t} / g(s^t)} \frac{1}{g(s^t)} + E \left[ \frac{(1 - \delta)}{g(s^{t+1})} M_{1, t+1} P_{k, t+1} \right]
-\end{align*}
 
-where $P_{k, t} = \frac{\lambda_{3, t}}{\lambda_{1, t}}$ and can be interpreted as the price of capital in terms of good $a$.
+  We can take \eqref{eq:foc_i1a} and turn it into
+
+  \begin{align*}
+    \frac{1}{\fracpd{H_1(i_{1, a}(s^t), i_{1, b}(s^t)}{i_{1, a}(s^t)}} &= E \left[ M_{1, t+1} P_{k, t+1} \right]
+  \end{align*}
+
+  We can also transform \eqref{eq:foc_chi1} to
+
+  \begin{align*}
+    P_{k, t} &= \fracpd{Y(\chi_{1, t} / g(s^t))}{\chi_{1, t} / g(s^t)} \frac{1}{g(s^t)} + E \left[ \frac{(1 - \delta)}{g(s^{t+1})} M_{1, t+1} P_{k, t+1} \right]
+  \end{align*}
+
+  where $P_{k, t} = \frac{\lambda_{3, t}}{\lambda_{1, t}}$ and can be interpreted as the price of capital in terms of good $a$.
+
+  \section{algebra}
+
+  Using \eqref{eq:defn_pareto_weight}, \eqref{eq:foc_a1}, and \eqref{eq:foc_a2} we can derive
+
+  \begin{align} \label{eq:eqn_for_a}
+    \mu_{1,t} \fracpd{c_{1,t}}{a_{1,t}} &= \mu_{2,t} \fracpd{c_{2,t}}{a_{2,t}} \notag \\
+    S_{t} \fracpd{c_{1,t}}{a_{1,t}} &= \fracpd{c_{2,t}}{a_{2,t}}
+  \end{align}
+
+  Similarly using \eqref{eq:defn_pareto_weight}, \eqref{eq:foc_b1}, and \eqref{eq:foc_b2} we can derive
+
+  \begin{align} \label{eq:eqn_for_b}
+    \mu_{1,t} \fracpd{c_{1,t}}{b_{1,t}} &= \mu_{2,t} \fracpd{c_{2,t}}{b_{2,t}} \notag \\
+    S_{t} \fracpd{c_{1,t}}{b_{1,t}} &= \fracpd{c_{2,t}}{b_{2,t}}
+  \end{align}
+
 
 
 %
