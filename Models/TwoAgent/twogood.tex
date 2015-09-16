@@ -1,4 +1,4 @@
-\documentclass[10pt]{article}
+\documentclass[19pt]{article}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
 
@@ -16,96 +16,126 @@
 
 \begin{document}
 
+\textit{About notation} Without loss of generality when I write $x_t$ I really mean $x(s^t)$. When the history dependence is potentially unclear, I will it out in longer form.
+
 The Lagrangian is
 
 \begin{alignat}{2} \label{eq:lagrangian}
-  \mathcal{L} &= \mu_{1,0} V_{1,0} + \mu_{2,0} V_{2,0} + \sum_{t=0}^{\infty} E_t & \biggm \{
-  &\lambda_{1,t} \left( G_1(a_{1,t}, b_{1,t}) - c_{1,t} \right) + \notag \\
-  & & &\lambda_{2,t} \left( G_2(a_{2,t}, b_{2,t}) - c_{2,t} \right) + \notag \\
-  & & &\lambda_{3,t} \left( Y_1(k_{1,t},1) - a_{1,t} - a_{2,t} - i_{1,a,t} - i_{2,a,t} \right) + \notag \\
-  & & &\lambda_{4,t} \left( Y_2(k_{2,t}, \xi) - b_{1,t} - b_{2,t} - i_{1,b,t} - i_{2,b,t} \right) + \notag \\
-  & & &\lambda_{5,t} \left( (1-\delta_1)k_{1,t} + H_1 \left(i_{1,a,t}, i_{1,b,t} \right) - g_{t+1}k_{1,t+1} \right) + \notag \\
-  & & &\lambda_{6,t} \left( (1-\delta_2)k_{2,t} + H_2 \left(i_{2,a,t}, i_{2,b,t} \right) - g_{t+1}k_{2,t+1} \right) + \notag \\
-   && \biggm\}
+  \mathcal{L} &= \mu_{1,0} V_{1,0}\left(c_{1,0}, V_{1,1}\right) &+& \mu_{2,0} V_{2,0}\left(c_{2,0}, V_{2,1} \right) \notag \\
+  & & \sum_{t=0}^{\infty} \sum_{s^t}  \biggm \{
+      &\lambda_{1}(s^t) \left( Y_1\left(\chi_{1,t}/g_t, 1\right) - a_{1,t} - a_{2,t} - i_{1,a,t} - i_{2,a,t} \right) + \notag \\
+  & & &\lambda_{2}(s^t) \left( Y_2\left(\chi_{2,t}/g_t, \xi_t\right) - b_{1,t} - b_{2,t} - i_{1,b,t} - i_{2,b,t} \right) + \notag \\
+  & & &\lambda_{3}(s^t) \left( (1-\delta_1)\frac{\chi_{1,t-1}}{g_{t-1}} + H_1 \left(i_{1,a,t-1}, i_{1,b,t-1} \right) - \chi_{1,t} \right) + \notag \\
+  & & &\lambda_{4}(s^t) \left( (1-\delta_2)\frac{\chi_{2,t-1}}{g_{t-1}} + H_2 \left(i_{2,a,t-1}, i_{2,b,t-1} \right) - \chi_{2,t} \right)  \biggm\},
 \end{alignat}
 
-The FOC are
+where $c_{i,t} = G_i(a_{i,t}, b_{i,t})$ and $\chi_{i,t} = g(s^t) k_i(s^t)$ for $i=1,2$ and $t=0, 1, \dots, \infty$.
+
+The control variables are: $\left\{a_{n}(s^t), b_{n}(s^t), i_{n,a}(s^t), i_{n,b}(s^t), \chi_{n}(s^t) \right\}$ for $t=0,1,\dots, \infty$, $n \in {1,2}$, and all histories of states $s^t$. The FONC are
 
 \begin{alignat}{2}
-  c_{1,t} : \quad   & \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}} \fracpd{V_{1,t}}{c_{1,t}} & &= \lambda_{1,t} \label{eq:c1} \\
-  a_{1,t} : \quad   & \fracpd{G_1(a_{1,t}, b_{1,t})}{a_{1,t}} \lambda_{1,t} & &= \lambda_{3,t} \label{eq:a1} \\
-  b_{1,t} : \quad   & \fracpd{G_1(a_{1,t}, b_{1,t})}{b_{1,t}} \lambda_{1,t} & &= \lambda_{4,t} \label{eq:b1} \\
-  i_{1,a,t} : \quad & \fracpd{H_1(i_{1,a,t}, i_{1,b,t})}{i_{1,a,t}} \lambda_{5,t} & &= \lambda_{3,t} \label{eq:i1a} \\
-  i_{1,b,t} : \quad & \fracpd{H_1(i_{1,a,t}, i_{1,b,t})}{i_{1,b,t}} \lambda_{5,t} & &= \lambda_{4,t} \label{eq:i1b} \\
-  c_{2,t} : \quad   & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}} \fracpd{V_{2,t}}{c_{2,t}}  & &= \lambda_{2,t} \label{eq:c2} \\
-  a_{2,t} : \quad   & \fracpd{G_2(a_{2,t}, b_{2,t})}{a_{2,t}} \lambda_{2,t} & &= \lambda_{3,t} \label{eq:a2} \\
-  b_{2,t} : \quad   & \fracpd{G_2(a_{2,t}, b_{2,t})}{b_{2,t}} \lambda_{2,t} & &= \lambda_{4,t} \label{eq:b2} \\
-  i_{2,a,t} : \quad & \fracpd{H_2(i_{2,a,t}, i_{2,b,t})}{i_{2,a,t}} \lambda_{6,t} & &= \lambda_{3,t} \label{eq:i2a} \\
-  i_{2,b,t} : \quad & \fracpd{H_2(i_{2,a,t}, i_{2,b,t})}{i_{2,b,t}} \lambda_{6,t} & &= \lambda_{4,t} \label{eq:i2b}
+  a_{1}(s^t)   : \quad & \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}}\fracpd{V_{1,t}}{c_{1,t}} \fracpd{c_{1,t}}{a_{t,1}} &= \lambda_{1}(s^t) \label{eq:foc_a1} \\
+  b_{1}(s^t)   : \quad & \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}}\fracpd{V_{1,t}}{c_{1,t}} \fracpd{c_{1,t}}{b_{t,1}} &= \lambda_{2}(s^t) \label{eq:foc_b1} \\
+  i_{1,a}(s^t) : \quad & \sum_{s^{t+1}} \lambda_3(s^{t+1}) \fracpd{H_1(i_{1,a}(s^t),i_{1,b}(s^t)))}{i_{1,a}(s^t)} &= \lambda_1(s^t) \label{eq:foc_i1a} \\
+  i_{1,b}(s^t) : \quad & \sum_{s^{t+1}} \lambda_3(s^{t+1}) \fracpd{H_1(i_{1,a}(s^t),i_{1,b}(s^t)))}{i_{1,b}(s^t)} &= \lambda_2(s^t)\label{eq:foc_i1b} \\
+  \chi_{1}(s^t): \quad & \lambda_1(s^t) \fracpd{Y_1(\chi_{1,t}/g_t, 1)}{(\chi_{1,t} g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_3(s^{t+1}) &= \lambda_3(s^t) \label{eq:foc_chi1} \\
+  a_{2}(s^t)   : \quad & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}}\fracpd{V_{2,t}}{c_{2,t}} \fracpd{c_{2,t}}{a_{t,2}} &= \lambda_{1}(s^t)\label{eq:foc_a2} \\
+  a_{2}(s^t)   : \quad & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}}\fracpd{V_{2,t}}{c_{2,t}} \fracpd{c_{2,t}}{b_{t,2}} &= \lambda_{2}(s^t)\label{eq:foc_b2} \\
+  i_{2,a}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{4,a}(s^t),i_{4,b}(s^t)))}{i_{4,a}(s^t)} &= \lambda_1(s^t) \label{eq:foc_i2a} \\
+  i_{2,b}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{4,a}(s^t),i_{4,b}(s^t)))}{i_{4,b}(s^t)} &= \lambda_2(s^t)\label{eq:foc_i2b} \\
+  \chi_{2}(s^t): \quad & \lambda_2(s^t) \fracpd{Y_2(\chi_{2,t}/g_t, 1)}{(\chi_{2,t} g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_4(s^{t+1}) &= \lambda_4(s^t) \label{eq:foc_chi2}
 \end{alignat}
 
-The state variables
+Before proceeding, we will gather some tools we will use while analyzing the above conditions. First, notice that by the chain rule we have
 
-We can combine \eqref{eq:c1} and \eqref{eq:a1} to obtain
-
-\begin{align} \label{eq:no_lambda1_1}
-  \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}} \fracpd{V_{1,t}}{c_{1,t}} \fracpd{G_1(a_{1,t}, b_{1,t})}{a_{1,t}} = \lambda_{3,t}.
+\begin{align} \label{eq:chain_derivs}
+  \fracpd{V_{i,0}}{V_{i,t}} = \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}}.
 \end{align}
 
-Similarly, \eqref{eq:c2} and \eqref{eq:a2} give
+The notice that we can write the SDF for agent $i$ as
 
-\begin{align} \label{eq:no_lambda1_2}
-  \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}} \fracpd{V_{2,t}}{c_{2,t}} \fracpd{G_2(a_{2,t}, b_{2,t})}{a_{2,t}} = \lambda_{3,t}.
-\end{align}
-
-Together \eqref{eq:no_lambda1_1} and \eqref{eq:no_lambda1_2} give
-
-\begin{align} \label{eq:mu0_ratio}
-  \frac{\mu_{1,0}}{\mu_{2,0}} &= \frac{\fracpd{V_{2,0}}{V_{2,t}} \fracpd{V_{2,t}}{c_{2,t}} \fracpd{G_2(a_{2,t}, b_{2,t})}{a_{2,t}}}{\fracpd{V_{1,0}}{V_{1,t}} \fracpd{V_{1,t}}{c_{1,t}} \fracpd{G_1(a_{1,t}, b_{1,t})}{a_{1,t}}}.
-\end{align}
-
-Now we define an ad hoc time $t$ Pareto weight:
-
-\begin{align} \label{eq:mu_t}
-  \mu_{i,t} &= \mu_{i,0} \fracpd{V_{i,0}}{V_{i,t}} \fracpd{V_{i,t}}{c_{i,t}} c_{i,t} \notag \\
-  &= \mu_{i,t-1} \fracpd{V_{i,t-1}}{V_{i,t}} \frac{\partial V_{i,t}/ \partial c_{i,t}}{\partial V_{i,t-1}/ \partial c_{i,t-1}} \frac{c_{i,t}}{c_{i,t-1}} \\
-  &= \mu_{i,t-1} M_t \frac{c_{i,t}}{c_{i,t-1}}
-\end{align}
-
-where we have used the chain rule to write $\fracpd{V_{i,0}}{V_{i,t}} = \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}}$ and have used
-
-\begin{align} \label{eq:MRS}
+\begin{align*}
   M_{i,t+1} &= \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \\
-  &= \beta \left( \frac{c_{i,t+1}}{c_{i,t}}\right)^{\rho - 1} \left( \frac{V_{i,t+1}}{E \left[ V_{i,t+1}^{\alpha} \right]^{\alpha}} \right)^{\alpha - \rho}
+  &= \beta \left( \frac{C_{t+1}}{C_t} \right)^{\rho - 1} \left( \frac{V_{i,t+1}}{E \left[ V_{i,t+1}^{\alpha} \right]^{1/\alpha}} \right)^{\alpha-\rho}.
+\end{align*}
+
+We will also write stochastic discount factor in $a$ and $b$ units as follows:
+
+
+
+We will make use of the time $t$ Pareto weight, which we define as
+
+\begin{align} \label{eq:defn_pareto_weight}
+  \mu_{i,t} &= \mu_{i,0} \fracpd{V_{i,0}}{V_{i,t}} \fracpd{V_{i,t}}{c_{i,t}} \notag \\
+  &= \mu_{i,0} \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}} \fracpd{V_{i,t}}{c_{i,t}} \notag  \\
+  &= \mu_{i,t-1} \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \notag \\
+  &= \mu_{i, t-1} M_{i,t}
 \end{align}
 
-We can combine \eqref{eq:mu_t} with \eqref{eq:mu0_ratio} to get
 
-\begin{align} \label{eq:foobar}
-  \frac{1}{c_{1,t}} \mu_{1,t} \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{a_{1,t}} = \frac{1}{c_{2,t}} \mu_{2,t} \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{a_{2,t}}
-\end{align}
-
-Define $S_t = \frac{\mu_{1,t}}{\mu_{2,t}}$ and write \eqref{eq:foobar} as
-
-\begin{align} \label{eq:a_allocation}
-  S_t \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{a_{1,t}} \frac{1}{c_{1,t}} &= \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{a_{2,t}} \frac{1}{c_{2,t}}.
-\end{align}
-
-We can also use \eqref{eq:mu_t} for both agents to write:
-
-\begin{align} \label{eq:S_recursion}
-  S_t = S_{t-1} \frac{M_{1,t}}{M_{2,t}} \frac{c_{1,t}/c_{1,t-1}}{c_{2,t}/c_{2,t-1}}.
-\end{align}
-
-Following the same steps we can write the marginal condition for good $b$ as
-
-\begin{align} \label{eq:b_allocation}
-  S_t \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{b_{1,t}} \frac{1}{c_{1,t}} &= \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{b_{2,t}} \frac{1}{c_{2,t}}.
-\end{align}
-
-\subsection{Investment terms} \label{sub:Investment terms}
-
-TODO: determine why They write C5 and C6 lagged one period. Do we need to do this also? If so, why. If not, why not?
+%
+% The state variables
+%
+% We can combine \eqref{eq:foc_c1} and \eqref{eq:foc_a1} to obtain
+%
+% \begin{align} \label{eq:no_lambda1_1}
+%   \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}} \fracpd{V_{1,t}}{c_{1,t}} \fracpd{G_1(a_{1,t}, b_{1,t})}{a_{1,t}} = \lambda_{3,t}.
+% \end{align}
+%
+% Similarly, \eqref{eq:foc_c2} and \eqref{eq:foc_a2} give
+%
+% \begin{align} \label{eq:no_lambda1_2}
+%   \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}} \fracpd{V_{2,t}}{c_{2,t}} \fracpd{G_2(a_{2,t}, b_{2,t})}{a_{2,t}} = \lambda_{3,t}.
+% \end{align}
+%
+% Together \eqref{eq:no_lambda1_1} and \eqref{eq:no_lambda1_2} give
+%
+% \begin{align} \label{eq:mu0_ratio}
+%   \frac{\mu_{1,0}}{\mu_{2,0}} &= \frac{\fracpd{V_{2,0}}{V_{2,t}} \fracpd{V_{2,t}}{c_{2,t}} \fracpd{G_2(a_{2,t}, b_{2,t})}{a_{2,t}}}{\fracpd{V_{1,0}}{V_{1,t}} \fracpd{V_{1,t}}{c_{1,t}} \fracpd{G_1(a_{1,t}, b_{1,t})}{a_{1,t}}}.
+% \end{align}
+%
+% Now we define an ad hoc time $t$ Pareto weight:
+%
+% \begin{align} \label{eq:mu_t}
+%   \mu_{i,t} &= \mu_{i,0} \fracpd{V_{i,0}}{V_{i,t}} \fracpd{V_{i,t}}{c_{i,t}} c_{i,t} \notag \\
+%   &= \mu_{i,t-1} \fracpd{V_{i,t-1}}{V_{i,t}} \frac{\partial V_{i,t}/ \partial c_{i,t}}{\partial V_{i,t-1}/ \partial c_{i,t-1}} \frac{c_{i,t}}{c_{i,t-1}} \\
+%   &= \mu_{i,t-1} M_t \frac{c_{i,t}}{c_{i,t-1}}
+% \end{align}
+%
+% where we have used the chain rule to write $\fracpd{V_{i,0}}{V_{i,t}} = \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}}$ and have used
+%
+% \begin{align} \label{eq:MRS}
+%   M_{i,t+1} &= \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \\
+%   &= \beta \left( \frac{c_{i,t+1}}{c_{i,t}}\right)^{\rho - 1} \left( \frac{V_{i,t+1}}{E \left[ V_{i,t+1}^{\alpha} \right]^{\alpha}} \right)^{\alpha - \rho}
+% \end{align}
+%
+% We can combine \eqref{eq:mu_t} with \eqref{eq:mu0_ratio} to get
+%
+% \begin{align} \label{eq:foobar}
+%   \frac{1}{c_{1,t}} \mu_{1,t} \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{a_{1,t}} = \frac{1}{c_{2,t}} \mu_{2,t} \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{a_{2,t}}
+% \end{align}
+%
+% Define $S_t = \frac{\mu_{1,t}}{\mu_{2,t}}$ and write \eqref{eq:foobar} as
+%
+% \begin{align} \label{eq:a_allocation}
+%   S_t \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{a_{1,t}} \frac{1}{c_{1,t}} &= \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{a_{2,t}} \frac{1}{c_{2,t}}.
+% \end{align}
+%
+% We can also use \eqref{eq:mu_t} for both agents to write:
+%
+% \begin{align} \label{eq:S_recursion}
+%   S_t = S_{t-1} \frac{M_{1,t}}{M_{2,t}} \frac{c_{1,t}/c_{1,t-1}}{c_{2,t}/c_{2,t-1}}.
+% \end{align}
+%
+% Following the same steps we can write the marginal condition for good $b$ as
+%
+% \begin{align} \label{eq:b_allocation}
+%   S_t \fracpd{G_{1,t}(a_{1,t}, b_{1,t})}{b_{1,t}} \frac{1}{c_{1,t}} &= \fracpd{G_{2,t}(a_{2,t}, b_{2,t})}{b_{2,t}} \frac{1}{c_{2,t}}.
+% \end{align}
+%
+% \subsection{Investment terms} \label{sub:Investment terms}
+%
+% TODO: determine why They write C5 and C6 lagged one period. Do we need to do this also? If so, why. If not, why not?
 
 
 
