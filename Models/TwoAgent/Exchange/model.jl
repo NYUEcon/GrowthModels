@@ -225,9 +225,12 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m),
 
     ♠_old = fill(100.0, capT+1)
 
+    sa = Array(Float64, capT)  # residual to use in regression
+    sb = Array(Float64, capT)  # residual to use in regression
+
     while dist > tol
 
-        # showplot(plot(1:capT, ♠[1:capT]))
+        showplot(plot(1:capT, ♠[1:capT]))
 
         b0, b1, b2 = b_old
         t = 1
@@ -243,11 +246,11 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m),
             ♠[t+1] = ♠p
 
             # compute sa_t as a function of ♠_t and zbar_t
-            sa = brent(foo->sa_resid(m, ♠t, zt, foo)[1], 1e-15, 1-1e-15)
+            sa[t] = brent(foo->sa_resid(m, ♠t, zt, foo)[1], 1e-15, 1-1e-15)
 
             # evaluate once more to get all the other intermediate variables
             # at the sa optimum
-            sb, a1, a2, b1, b2, c1, c2 = sa_resid(m, ♠t, zt, sa)[2]
+            sb[t], a1, a2, b1, b2, c1, c2 = sa_resid(m, ♠t, zt, sa[t])[2]
 
             # fill in RHS (other residual we didn't use in sa_resid above)
             # we don't need to do any transformations because the LHS is
@@ -262,6 +265,11 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m),
             # also fill in endog part of regression matrix for time t
             X[t, 2] = ♠t
         end
+
+        showplot(plot(1:capT, sa[1:capT]))
+        showplot(plot(1:capT, sb[1:capT]))
+        showplot(plot(1:capT, RHS[1:capT]))
+        showplot(plot(1:capT, ♠[1:capT]))
 
         # check convergence (computes `mean(abs(♠[1:end-1] - ♠_old[1:end-1]))`)
         # dist = cityblock(sub(♠, 1:capT), sub(♠_old, 1:capT)) / capT

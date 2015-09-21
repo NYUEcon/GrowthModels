@@ -2,7 +2,8 @@ using Bokeh
 
 m = BCFL22C()
 lzbar = simulate_exog(m)
-b_old = [0.05, 0.95, -0.75]
+b_old = [0.00, 1.0, 0.0]  # this is the time additive solution (constnat pareto weights)
+# b_old = [0.05, 0.95, 0.3]
 b0, b1, b2 = b_old
 ξ = 0.1
 
