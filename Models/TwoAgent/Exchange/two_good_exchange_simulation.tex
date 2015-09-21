@@ -1,0 +1,196 @@
+\documentclass[19pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+
+% partial derivative as a fraction
+\newcommand{\fracpd}[2]{
+  \ensuremath{\frac{\partial #1}{\partial #2}}
+}
+
+% fraction with parenthesis around it
+\newcommand{\pfrac}[2]{
+  \ensuremath{ \left( \frac{#1}{#2} \right)}
+}
+
+
+
+\begin{document}
+
+% \section{Model}
+%
+% \textit{About notation} Without loss of generality when I write $x_t$ I really mean $x(s^t)$. When the history dependence is potentially unclear, I will it out in longer form.
+%
+% The Lagrangian is
+%
+% \begin{alignat}{2} \label{eq:lagrangian}
+%   \mathcal{L} &= \mu_{1,0} V_{1,0}\left(c_{1,0}, V_{1,1}\right) &+& \mu_{2,0} V_{2,0}\left(c_{2,0}, V_{2,1} \right) \notag \\
+%   & & \sum_{t=0}^{\infty} \sum_{s^t}  \biggm \{
+%       &\lambda_{1}(s^t) \left( Y_1\left(\chi_{1,t}/g_t, 1\right) - a_{1,t} - a_{2,t} - i_{1,a,t} - i_{2,a,t} \right) + \notag \\
+%   & & &\lambda_{2}(s^t) \left( Y_2\left(\chi_{2,t}/g_t, \xi_t\right) - b_{1,t} - b_{2,t} - i_{1,b,t} - i_{2,b,t} \right) + \notag \\
+%   & & &\lambda_{3}(s^t) \left( (1-\delta_1)\frac{\chi_{1,t-1}}{g_{t-1}} + H_1 \left(i_{1,a,t-1}, i_{1,b,t-1} \right) - \chi_{1,t} \right) + \notag \\
+%   & & &\lambda_{4}(s^t) \left( (1-\delta_2)\frac{\chi_{2,t-1}}{g_{t-1}} + H_2 \left(i_{2,a,t-1}, i_{2,b,t-1} \right) - \chi_{2,t} \right)  \biggm\},
+% \end{alignat}
+%
+% where $c_{i,t} = G_i(a_{i,t}, b_{i,t})$ and $\chi_{i,t} = g(s^t) k_i(s^t)$ for $i=1,2$ and $t=0, 1, \dots, \infty$.
+%
+% \section{FOC}
+%
+% The control variables are: $\left\{a_{n}(s^t), b_{n}(s^t), i_{n,a}(s^t), i_{n,b}(s^t), \chi_{n}(s^t) \right\}$ for $t=0,1,\dots, \infty$, $n \in {1,2}$, and all histories of states $s^t$. The FONC are
+%
+% \begin{alignat}{2}
+%   a_{1}(s^t)   : \quad & \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}}\fracpd{V_{1,t}}{c_{1,t}} \fracpd{c_{1,t}}{a_{t,1}} &= \lambda_{1}(s^t) \label{eq:foc_a1} \\
+%   b_{1}(s^t)   : \quad & \mu_{1,0} \fracpd{V_{1,0}}{V_{1,t}}\fracpd{V_{1,t}}{c_{1,t}} \fracpd{c_{1,t}}{b_{t,1}} &= \lambda_{2}(s^t) \label{eq:foc_b1} \\
+%   i_{1,a}(s^t) : \quad & \sum_{s^{t+1}} \lambda_3(s^{t+1}) \fracpd{H_1(i_{1,a}(s^t),i_{1,b}(s^t)))}{i_{1,a}(s^t)} &= \lambda_1(s^t) \label{eq:foc_i1a} \\
+%   i_{1,b}(s^t) : \quad & \sum_{s^{t+1}} \lambda_3(s^{t+1}) \fracpd{H_1(i_{1,a}(s^t),i_{1,b}(s^t)))}{i_{1,b}(s^t)} &= \lambda_2(s^t)\label{eq:foc_i1b} \\
+%   \chi_{1}(s^t): \quad & \lambda_1(s^t) \fracpd{Y_1(\chi_{1,t}/g_t, 1)}{(\chi_{1,t}/g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_3(s^{t+1}) &= \lambda_3(s^t) \label{eq:foc_chi1} \\
+%   a_{2}(s^t)   : \quad & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}}\fracpd{V_{2,t}}{c_{2,t}} \fracpd{c_{2,t}}{a_{t,2}} &= \lambda_{1}(s^t)\label{eq:foc_a2} \\
+%   a_{2}(s^t)   : \quad & \mu_{2,0} \fracpd{V_{2,0}}{V_{2,t}}\fracpd{V_{2,t}}{c_{2,t}} \fracpd{c_{2,t}}{b_{t,2}} &= \lambda_{2}(s^t)\label{eq:foc_b2} \\
+%   i_{2,a}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{2,a}(s^t),i_{2,b}(s^t)))}{i_{4,a}(s^t)} &= \lambda_1(s^t) \label{eq:foc_i2a} \\
+%   i_{2,b}(s^t) : \quad & \sum_{s^{t+1}} \lambda_4(s^{t+1}) \fracpd{H_2(i_{2,a}(s^t),i_{2,b}(s^t)))}{i_{4,b}(s^t)} &= \lambda_2(s^t)\label{eq:foc_i2b} \\
+%   \chi_{2}(s^t): \quad & \lambda_2(s^t) \fracpd{Y_2(\chi_{2,t}/g_t, 1)}{(\chi_{2,t}/g_t)} \frac{1}{g_t} + \sum_{s^{t+1}} \frac{(1 - \delta_1)}{g(s^{t+1}|s^t)}\lambda_4(s^{t+1}) &= \lambda_4(s^t) \label{eq:foc_chi2}
+% \end{alignat}
+%
+% \section{Algebra} \label{sec:algebra}
+%
+%   \subsection{Definitions} \label{sub:definitions}
+%
+%   Before proceeding, we will gather some tools we will use while analyzing the above conditions. First, notice that by the chain rule we have
+%
+%   \begin{align} \label{eq:chain_derivs}
+%     \fracpd{V_{i,0}}{V_{i,t}} = \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}}.
+%   \end{align}
+%
+%   The notice that we can write the SDF for agent $i$ as
+%
+%   \begin{align*}
+%     M_{i,t+1} &= \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \\
+%     &= \beta \left( \frac{C_{t+1}}{C_t} \right)^{\rho - 1} \left( \frac{V_{i,t+1}}{E \left[ V_{i,t+1}^{\alpha} \right]^{1/\alpha}} \right)^{\alpha-\rho}.
+%   \end{align*}
+%
+%   We will also write stochastic discount factor in $a$ and $b$ units as follows:
+%
+%
+%
+%   We will make use of the time $t$ Pareto weight, which we define as
+%
+%   \begin{align} \label{eq:defn_pareto_weight}
+%     \mu_{i,t} &= \mu_{i,0} \fracpd{V_{i,0}}{V_{i,t}} \fracpd{V_{i,t}}{c_{i,t}} \notag \\
+%     &= \mu_{i,0} \prod_{\tau=1}^{t} \fracpd{V_{i,\tau-1}}{V_{i,\tau}} \fracpd{V_{i,t}}{c_{i,t}} \notag  \\
+%     &= \mu_{i,t-1} \fracpd{V_{i,t}}{V_{i,t+1}} \frac{\partial V_{i,t+1}/ \partial c_{i,t+1}}{\partial V_{i,t}/ \partial c_{i,t}} \notag \\
+%     &= \mu_{i, t-1} M_{i,t}
+%   \end{align}
+%
+%   We will also work with the variable, $S_t = \frac{\mu_{1,t}}{\mu_{2,t}}$, which according to \eqref{eq:defn_pareto_weight} can be written recursively as
+%
+%   \begin{align*}
+%     S_t &= S_{t-1} \frac{M_{1,t-1}}{M_{2,t-1}}
+%   \end{align*}
+%
+%   \subsection{Working with FOC} \label{sub:Working_with_foc}
+%
+%
+%   We can take \eqref{eq:foc_i1a} and turn it into
+%
+%   \begin{align*}
+%     \frac{1}{\fracpd{H_1(i_{1, a}(s^t), i_{1, b}(s^t)}{i_{1, a}(s^t)}} &= E \left[ M_{1, t+1} P_{k, t+1} \right]
+%   \end{align*}
+%
+%   We can also transform \eqref{eq:foc_chi1} to
+%
+%   \begin{align*}
+%     P_{k, t} &= \fracpd{Y(\chi_{1, t} / g(s^t))}{\chi_{1, t} / g(s^t)} \frac{1}{g(s^t)} + E \left[ \frac{(1 - \delta)}{g(s^{t+1})} M_{1, t+1} P_{k, t+1} \right]
+%   \end{align*}
+%
+%   where $P_{k, t} = \frac{\lambda_{3, t}}{\lambda_{1, t}}$ and can be interpreted as the price of capital in terms of good $a$.
+%
+%   Using \eqref{eq:defn_pareto_weight}, \eqref{eq:foc_a1}, and \eqref{eq:foc_a2} we can derive
+%
+%   \begin{align} \label{eq:eqn_for_a}
+%     \mu_{1,t} \fracpd{c_{1,t}}{a_{1,t}} &= \mu_{2,t} \fracpd{c_{2,t}}{a_{2,t}} \notag \\
+%     S_{t} \fracpd{c_{1,t}}{a_{1,t}} &= \fracpd{c_{2,t}}{a_{2,t}}
+%   \end{align}
+%
+%   Similarly using \eqref{eq:defn_pareto_weight}, \eqref{eq:foc_b1}, and \eqref{eq:foc_b2} we can derive
+%
+%   \begin{align} \label{eq:eqn_for_b}
+%     \mu_{1,t} \fracpd{c_{1,t}}{b_{1,t}} &= \mu_{2,t} \fracpd{c_{2,t}}{b_{2,t}} \notag \\
+%     S_{t} \fracpd{c_{1,t}}{b_{1,t}} &= \fracpd{c_{2,t}}{b_{2,t}}
+%   \end{align}
+
+
+\clearpage
+\section{Starting from Dave's Exchange notes} \label{sec:StartingfromDavesExchangenotes}
+
+Start from Dave's exchange economy notes, but add back heterogeneity in agent parameters ($\rho, \alpha, \beta, \omega, \sigma$). Combine the FOC in $a_1$ and $a_2$ to obtain
+
+\begin{align} \label{eq:FOC_a1_a2}
+  \frac{w_1}{w_2} &= \frac{(1 - \beta_2) c_2^{\rho_2 - \sigma_2} \omega_2 a_2^{\sigma_2 - 1}}{(1 - \beta_1) c_1^{\rho_1 - \sigma_1} (1-\omega_1) a_1^{\sigma_1 - 1}}
+\end{align}
+
+Also combine FOC in $b_1$ and $b_2$:
+
+\begin{align} \label{eq:FOC_b1_b2}
+  \frac{w_1}{w_2} &= \frac{(1 - \beta_2) c_2^{\rho_2 - \sigma_2} (1-\omega_2) b_2^{\sigma_2 - 1}}{(1 - \beta_1) c_1^{\rho_1 - \sigma_1} \omega_1 b_1^{\sigma_1 - 1}}
+\end{align}
+
+
+Combine these two to obtain the equation he has in the middle of the page:
+
+\begin{align*}
+  \frac{\omega_2 a_2^{\sigma_2 - 1}}{(1 - \omega_1) a_1^{\sigma_1 - 1}} &= \frac{(1-\omega_2) b_2^{\sigma_2 - 1}}{\omega_1 b_1^{\sigma_1 - 1}}
+\end{align*}
+
+For now let's assume that $\sigma_1 = \sigma_2 = \sigma$ and define $s_a := a_1/y_1$ and $s_b = b_1/y_2$. We can now derive
+
+\begin{align*}
+  \left( \frac{s_b}{1 - s_b} \right)^{\sigma - 1} &= \frac{(1-\omega_1)(1-\omega_2)}{\omega_1 \omega_2} \left( \frac{s_a}{1 - s_a} \right)^{\sigma-1},
+\end{align*}
+
+which can be solved in closed form for
+
+\begin{align} \label{eq:soln_sb}
+  s_b = \frac{\left( \frac{(1-\omega_1)(1-\omega_2)}{\omega_1 \omega_2} \right)^{\frac{1}{\sigma - 1}} \frac{s_a}{1 - s_a}}{1 + \left( \frac{(1-\omega_1)(1-\omega_2)}{\omega_1 \omega_2} \right)^{\frac{1}{\sigma - 1}} \frac{s_a}{1 - s_a}}.
+\end{align}
+
+Then, for a given $w_1/w_2 := \spadesuit, y_1=1$ and $y_2=z_2/z_1$ we can use \eqref{eq:FOC_a1_a2} as a residual to search over $s_a$ and we can use \eqref{eq:FOC_b1_b2} as the needed residual to form the RHS of the regression that updates $\spadesuit_t$ to $\spadesuit_{t+1}$.
+
+\section{Algorithm} \label{sec:Algorithm}
+
+Now the computation algorithm will be presented. As an initialization phase, do the following:
+
+\begin{itemize}
+  \item Choose a large simulation length $T$
+  \item Choose an initial state $\spadesuit_0$ and $z_{2,0}/z_{1,0}$.
+  \item Simulate the exogenous process forward to obtain $\left\{z_{2,t}/z_{1,t}  \right\}_{t=1}^T$
+  \item Choose an initial coefficient vector $b = \begin{bmatrix}b_0 & b_1 & b_2\end{bmatrix}$ in the equation
+  \begin{align*}
+    \spadesuit_{t+1} = b_0 + b_1 \spadesuit_t + b_2 (\log z_{2,t} - \log z_{1,t})
+  \end{align*}
+\end{itemize}
+
+
+Then, one iteration of the simulation algorithm is carried out as follows:
+
+\begin{enumerate}
+  \item Use the coefficients $b$, simulated history for $z_2/z_1$, and the initial condition $\spadesuit_0 = 1$ to simulate $\left\{ \spadesuit_t \right\}_{t=1}^{T}$
+  \item Using this history, use equations \eqref{eq:FOC_a1_a2} and \eqref{eq:soln_sb} so solve for $\left\{ s_{a,t}, s_{b,t} \right\}_{t=1}^{T}$
+  \item Given $s_{a,t}, s_{b,t}$, and $z_{2,t}/z_{1,t}$ we know $y_{1,t}=1$, $y_{2,t} = z_{2,t}/z_{1,t}$, $a_{1,t} = s_{a,t} y_{1,t}$, $a_{2,t} = (1-s_{a,t}) y_{1,t}$, $b_{1,t} = s_{b,t} y_{2,t}$, $b_{2,t} = (1-s_{b,t}) y_{2,t}$, $c_{1,t} = h_1(a_{1,t}, b_{1,t})$, and $c_{2,t} = h_2(a_{2,t}, b_{2,t})$. We can use \eqref{eq:FOC_b1_b2} to form an updated guess for what $\spadesuit_t$ should be.
+  \item Given this updated guess we can now run the following regression:
+
+    \begin{align*}
+      \hat{\spadesuit}_{t+1} = \hat{b}_0 + \hat{b}_1 \tilde{\spadesuit}_t + \hat{b}_2 (\log z_{2,t} - \log z_{1,t})
+    \end{align*}
+
+    where $\hat{\spadesuit}_{t+1}$ is obtained in step 1 from using the old coefficient vector and $\tilde{spadesuit}_t$ is the lefthand side of \eqref{eq:FOC_b1_b2} as computed in step 3.
+  \item Then say that the new coefficient vector is
+
+    \begin{align*}
+      b = (1 - \xi) \hat{b} + \xi b,
+    \end{align*}
+
+    where $\hat{b}$ is the new coefficient vector from the previous step and $b$ is the coefficient vector in hand when you simulated forward in step 1.
+
+  \item Finally, check convergence of the time series of $\{\spadesuit_t\}$ computed on successive iterations
+\end{enumerate}
+
+\end{document}

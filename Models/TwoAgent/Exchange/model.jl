@@ -1,7 +1,6 @@
 module Exchange
 
 using CompEcon
-using Distances
 
 immutable Agent
     ρ::Float64
@@ -190,8 +189,10 @@ function sa_resid(m::BCFL22C, ♠t, zbar, sa)
 
     a1, a2, b1, b2, c1, c2 = get_a_b_c(m, sa, sb, zbar)
 
-    rhs = (1-β2)*c2^(ρ2-σ2)*ω2*a2^(σ2-1)/((1-β1)*c1^(ρ1-σ1)*(1-ω1)*a1^(σ1-1))
-    return ♠t - rhs, (sb, a1, a2, b1, b2, c1, c2)
+    rhs = log(1-β2) + (ρ2-σ2) * log(c2) + log(ω2) + (σ2-1)*log(a2)
+    rhs += - (log(1-β1) + (ρ1-σ1)*log(c1) + log(1-ω1) + (σ1-1)*log(a1))
+    # rhs = (1-β2)*c2^(ρ2-σ2)*ω2*a2^(σ2-1)/((1-β1)*c1^(ρ1-σ1)*(1-ω1)*a1^(σ1-1))
+    return log(♠t) - rhs, (sb, a1, a2, b1, b2, c1, c2)
 end
 
 
@@ -226,7 +227,7 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m),
 
     while dist > tol
 
-        showplot(plot(1:capT, ♠[1:capT]))
+        # showplot(plot(1:capT, ♠[1:capT]))
 
         b0, b1, b2 = b_old
         t = 1
@@ -241,8 +242,6 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m),
             ♠p = b0+ b1*♠t + b2*lzt
             ♠[t+1] = ♠p
 
-            sa_resid(m, ♠t, zt, 1-1e-13)[1]
-
             # compute sa_t as a function of ♠_t and zbar_t
             sa = brent(foo->sa_resid(m, ♠t, zt, foo)[1], 1e-15, 1-1e-15)
 
@@ -255,6 +254,9 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m),
             # already supposed to represent ♠t
             RHS_num = (1-β2)*c2^(ρ2-σ2)*(1-ω2)*b2^(σ2-1)
             RHS_denom = (1-β1)*c1^(ρ1-σ1)*ω1*b1^(σ1-1)
+
+            # TODO: I think the problem must be in how I construct RHS.
+            #       study the Maliar examples more to confirm
             RHS[t] = RHS_num / RHS_denom
 
             # also fill in endog part of regression matrix for time t
@@ -269,7 +271,7 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m),
         # b_old = scale!(ξ, b_hat) + scale!((1-ξ), b_old)
 
         dist = mean(abs(1 - ♠./♠_old))
-        b_hat = X \ RHS
+        @show b_hat = X[1:end-1, :] \ RHS[2:end]
         b_old = ξ*b_hat + (1-ξ)*b_old
 
         copy!(♠_old, ♠)
