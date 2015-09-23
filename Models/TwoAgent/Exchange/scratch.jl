@@ -4,8 +4,9 @@ m = BCFL22C()
 lzbar, lg = simulate_exog(m)
 κ = [0.05, 0.95, -0.1]
 κ0, κ1, κ2 = κ
-ξ = 0.1
+ξ = 0.05
 
+main()
 linear_coefs(m, lzbar, lg, κ, maxiter=5)
 
 capT = length(lzbar)
@@ -27,7 +28,7 @@ showplot(plot(1:capT, lzbar))
 
 
 a1 = 1-1e-15
-t
+t = 48
 
 showplot(plot(1:length(c1)', [c1 c2], legends=["c1", "c2"]))
 

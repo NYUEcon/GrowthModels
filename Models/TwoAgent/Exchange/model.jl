@@ -5,6 +5,10 @@ using CompEcon
 include("util.jl")
 using .EDSUtil
 
+# ---------- #
+# Agent type #
+# ---------- #
+
 immutable Agent
     ρ::Float64
     β::Float64
@@ -27,6 +31,10 @@ function _agg(agent::Agent, x, y)
     ω, σ = agent.ω, agent.σ
     ((1-ω)*x.^σ + ω*y.^σ).^(1/σ)
 end
+
+# ---------- #
+# Model type #
+# ---------- #
 
 """
 Stores the parameters for the following model:
@@ -135,6 +143,9 @@ function simulate_exog(m::BCFL22C, capT::Int=10000, seed::Int=1)
     lzbar, lg
 end
 
+# ------------------------------ #
+# Routines to compute allocation #
+# ------------------------------ #
 """
 If we combine all 4 FOC and allow all params to be different, we get
 
@@ -195,9 +206,13 @@ function a1_resid(m::BCFL22C, ♠t, zbar, a1)
 
     # compute RHS of residual for the a_1 FOC
     rhs = (c2/a2)^(1.0-σ2) * (c1/a1)^(σ1-1.0) * ω2/(1-ω1)
+    rhs2 = (c2/b2)^(1.0-σ2) * (c1/b1)^(σ1-1.0) * (1-ω2)/ω1
+    # if abs(rhs - rhs2) > 1e-12
+    #     warn("rhs are different for statei ♠t = $(♠t), zbar=$zbar, a1=$a1")
+    # end
 
     # return the residual as first argument and allocation as second
-    ♠t - rhs, (a1, a2, b1, b2, c1, c2)
+    ♠t - rhs2, (a1, a2, b1, b2, c1, c2)
 end
 
 function get_allocation(m::BCFL22C, ♠, zbar)
@@ -205,20 +220,6 @@ function get_allocation(m::BCFL22C, ♠, zbar)
 
     # evaluate once more to get the allocation at the optimal a1
     a1, a2, b1, b2, c1, c2 = a1_resid(m, ♠, zbar, a1)[2]
-end
-
-function get_eds_grid(vectors::Vector...; δ::Float64=0.01, Mbar::Int=50)
-    capT = length(vectors[1])
-
-    sim_data = hcat(vectors...)
-    density = eval_density(sim_data, sim_data)[1]
-    inds = sortperm(density)
-    n_drop = ceil(Int, capT*0.01)
-    sort_data = sim_data[inds, :]
-    sort_data = sort_data[n_drop:end, :]
-
-    # now construct eds on this "thinned" out data
-    eds = eds_M(sort_data, Mbar)
 end
 
 # ------------------- #
@@ -229,7 +230,7 @@ immutable ValueFunctions
     coefs::Matrix{Float64}  # first column U_1, second col U_2
 end
 
-# return a Vector of [U_1(♠, zbar), U_2(♠, zbar)]
+# return a Vector of [U_1(♠, zbar), U_2(♠, zbar)]. Reshape from o
 value_funcs(vfs::ValueFunctions, ♠::Real, zbar::Real) =
     reshape(complete_polynomial([♠ zbar], vfs.deg) * vfs.coefs, 2)
 
@@ -270,6 +271,19 @@ end
 # ----------------------- #
 # VFI for post simulation #
 # ----------------------- #
+function get_eds_grid(vectors::Vector...; δ::Float64=0.01, Mbar::Int=50)
+    capT = length(vectors[1])
+
+    sim_data = hcat(vectors...)
+    density = eval_density(sim_data, sim_data)[1]
+    inds = sortperm(density)
+    n_drop = ceil(Int, capT*0.01)
+    sort_data = sim_data[inds, :]
+    sort_data = sort_data[n_drop:end, :]
+
+    # now construct eds on this "thinned" out data
+    eds = eds_M(sort_data, Mbar)
+end
 
 function get_next_grid(m::BCFL22C, κ::Vector, ♠::Real, zbar::Real)
     lzbar = log(zbar)
@@ -357,12 +371,76 @@ function vfi_from_simulation(m::BCFL22C, κ::Vector, grid::Matrix{Float64};
     vfs
 end
 
+# ------------------------- #
+# Main simulation algorithm #
+# ------------------------- #
+
+#=
+now construct LHS of regression using the euler equation:
+
+♠' = ♠ * beta_1/beta_2 * g'^(α1-α2) * (c_1'/c_1)^(ρ_1-1) *
+     (c_2'/c_2)^(1-ρ_2) * (U_1'/μ_1)^(α_1 - ρ_1) *(U_2'/μ_2)^(ρ_2 - α_2)
+=#
+function eval_euler_eqn!(m::BCFL22C, κ::Vector, vfs::ValueFunctions,
+                         ♠::Vector, zbar::Vector, g_all::Vector, c1::Vector,
+                         c2::Vector, capT::Int,
+                         LHS::Vector)
+    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1 = _unpack(m.agent1)
+    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2, ζ2 = _unpack(m.agent2)
+
+    for t=1:capT-1  # can only go to capT-1 b/c we need c[t+1]
+        # get μ_t based on current state
+        μ1, μ2 = certainty_equiv(m, κ, vfs, ♠[t], zbar[t])
+
+        # get U_{t+1} from simulation
+        U1p, U2p = value_funcs(vfs, ♠[t+1], zbar[t+1])
+
+        # now package up the LHS of the Euler eqn, which is ♠'
+        LHS[t] = (♠[t]*(β1/β2) *
+                  g_all[t+1]^(α1-α2) *
+                  (c1[t+1]/c1[t])^(ρ1 - 1) *
+                  (c2[t+1]/c2[t])^(1 - ρ2) *
+                  (U1p/μ1)^(α1 - ρ1) *
+                  (U2p/μ2)^(ρ2 - α2))
+    end
+end
+
+"""
+Do the simulation. Updates c1, c2, ♠, and X in place
+"""
+function do_simulation!(m::BCFL22C, κ::Vector, capT::Int, lzbar::Vector,
+                        zbar::Vector, ♠::Vector, c1::Vector, c2::Vector,
+                        X::Matrix)
+    κ0, κ1, κ2 = κ
+
+    # simulate ♠ forward and solve for c1, c2 along the way. Need them so
+    # I can evaluate the euler equation later
+    for t=1:capT
+        # extract time t state
+        ♠t = ♠[t]
+        lzt = lzbar[t]
+        lztp = lzbar[t+1]
+        zbart = zbar[t]
+
+        # update ♠_{t+1}. Is linear in ♠_t and log zbar_{t+1}
+        ♠p = κ0+ κ1*♠t + κ2*lztp
+        ♠[t+1] = ♠p
+
+        # Solve for the optimal allocation at this ♠, zbart and store
+        # consumption in vectors
+        a1, a2, b1, b2, c1[t], c2[t] = get_allocation(m, ♠t, zbart)
+
+        # fill in this row of regresion matrix
+        X[t, 2] = ♠t
+    end
+end
+
 
 function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
                       lg::Vector{Float64}=simulate_exog(m)[2],
                       κ::Vector{Float64}=[0.05, 0.95, -0.75];
                       maxiter::Int=10_000, verbose::Bool=true,
-                      ξ::Float64=0.1)
+                      ξ::Float64=0.05)
     # Make sure we are working with the endowment economy
     if abs(m.agent1.η-1.0) > 1e-14 || abs(m.agent2.η - 1.0) > 1e-14
         msg = "Solution only implemented for endowment economy (η1=η2=1.0)"
@@ -386,6 +464,7 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
     tol = 1e-4*ξ
     dist = 100.0
     it = 0
+    start_time = time()
 
     # ♠ is ratio multipliers: φ_1/φ_2. Starts at 1.0.
     ♠ = ones(capT+1)
@@ -397,30 +476,11 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
     c1 = Array(Float64, capT)
     c2 = Array(Float64, capT)
 
+    # core algorithm
     while dist > tol && it < maxiter
 
-        κ0, κ1, κ2 = κ
-
-        # simulate ♠ forward and solve for c1, c2 along the way. Need them so
-        # I can evaluate the euler equation later
-        for t=1:capT
-            # extract time t state
-            ♠t = ♠[t]
-            lzt = lzbar[t]
-            lztp = lzbar[t+1]
-            zbart = zbar[t]
-
-            # update ♠_{t+1}. Is linear in ♠_t and log zbar_{t+1}
-            ♠p = κ0+ κ1*♠t + κ2*lztp
-            ♠[t+1] = ♠p
-
-            # Solve for the optimal allocation at this ♠, zbart and store
-            # consumption in vectors
-            a1, a2, b1, b2, c1[t], c2[t] = get_allocation(m, ♠t, zbart)
-
-            # fill in this row of regresion matrix
-            X[t, 2] = ♠t
-        end
+        # do simulation. Updates ♠, c1, c2, and X inplace
+        do_simulation!(m, κ, capT, lzbar, zbar, ♠, c1, c2, X)
 
         # build EDS grid
         grid = get_eds_grid(♠, zbar)
@@ -428,48 +488,31 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
         # do VFI to get approximation to value functions/certainty equiv
         vfs = vfi_from_simulation(m, κ, grid; deg=3, tol=1e-8, maxit=5000)
 
-        #=
-        now construct LHS of regression using the euler equation:
-
-        ♠' = ♠ * beta_1/beta_2 * g'^(α1-α2) * (c_1'/c_1)^(ρ_1-1) *
-             (c_2'/c_2)^(1-ρ_2) * (U_1'/μ_1)^(α_1 - ρ_1) *(U_2'/μ_2)^(ρ_2 - α_2)
-        =#
-        for t=1:capT-1  # can only go to capT-1 b/c we need c[t+1]
-            # get μ_t based on current state
-            μ1, μ2 = certainty_equiv(m, κ, vfs, ♠[t], zbar[t])
-
-            # get U_{t+1} from simulation
-            U1p, U2p = value_funcs(vfs, ♠[t+1], zbar[t+1])
-
-            # now package up the LHS of the Euler eqn, which is ♠'
-            LHS[t] = (♠[t]*(β1/β2) *
-                      g_all[t+1]^(α1-α2) *
-                      (c1[t+1]/c1[t])^(ρ1 - 1) *
-                      (c2[t+1]/c2[t])^(1 - ρ2) *
-                      (U1p/μ1)^(α1 - ρ1) *
-                      (U2p/μ2)^(ρ2 - α2))
-        end
+        # update LHS
+        eval_euler_eqn!(m, κ, vfs, ♠, zbar, g_all, c1, c2, capT, LHS)
 
         # compute dist, update coefs
         dist = mean(abs(1.0 - ♠./♠_old))
         κ_hat = X[1:capT-1, :] \ LHS[1:capT-1]
         κ = (1-ξ)*κ_hat + ξ*κ
 
-
-
-
-        # TODO: need to figure out how to compute euler eqn and run regression
-
-
         it += 1
         if mod(it, 1) == 0
-            @printf "Iteration %i, dist %2.5e\n" it dist
+            tot_time = time() - start_time
+            @printf "Iteration %i, dist %2.5e, time %5.5e\n" it dist tot_time
             @show κ
         end
     end
 
     ♠, κ
 
+end
+
+function main()
+    m = BCFL22C()
+    lzbar, lg = simulate_exog(m)
+    κ = [0.05, 0.95, -0.1]
+    linear_coefs(m, lzbar, lg, κ, maxiter=5)
 end
 
 #=
