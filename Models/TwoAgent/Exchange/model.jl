@@ -479,7 +479,7 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
 
     # ♠ is ratio multipliers: φ_1/φ_2. Starts at 1.0.
     ♠ = ones(capT+1)
-    X = [ones(capT+1) ♠ lzbar]  # regression matrix
+    X = [ones(capT) ♠[1:capT] lzbar[2:capT+1]]  # regression matrix
     LHS = Array(Float64, capT-1)  # LHS of regression from euler equation
 
     ♠_old = fill(100.0, capT+1)
