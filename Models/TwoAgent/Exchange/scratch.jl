@@ -1,12 +1,17 @@
-using Bokeh
+using Bokeh; autoopen(true)
 
 m = BCFL22C()
 lzbar, lg = simulate_exog(m)
-κ = [0.05, 0.95, -0.1]
+# κ = [0.05, 0.95, -0.1 0.5]
+κ = [0.0, 1.0, 0.0]
 κ0, κ1, κ2 = κ
 ξ = 0.05
 
-main()
+sim_data = X[1:capT-1, 2:end]
+l♠, κ = main()
+
+
+plot(l♠)
 linear_coefs(m, lzbar, lg, κ, maxiter=5)
 
 capT = length(lzbar)
@@ -26,6 +31,7 @@ t
 showplot(plot(1:capT, ♠[1:capT]))
 showplot(plot(1:capT, lzbar))
 
+plot(l♠)
 
 a1 = 1-1e-15
 t = 48
@@ -72,3 +78,37 @@ maxit = 5000
 it
 
 x = rand(2, 10)
+
+showplot(plot(l♠))
+showplot(plot(LHS))
+showplot(plot([c1[1:t-1] c2[1:t-1]], legends=["c1", "c2"]))
+
+#=
+omega = 1-0.972; sigma =-2/3;
+
+xi = 1.004;
+
+ratio_phi = 1.9375;
+
+b = @(a) xi/(1+((1-omega)^2/omega^2)^(1/(sigma-1))*(a/(1-a)));
+
+c1 = @(a) ((1-omega)*a^sigma + omega*(xi-b(a))^sigma)^(1/sigma);
+c2 = @(a) ((1-omega)*b(a)^sigma + omega*(1-a)^sigmaIs )^(1/sigma);
+ratio_implied = @(a) c2(a)^(1-sigma)*omega*(1-a)^(sigma-1)/(c1(a)^(1-sigma)*(1-omega)*a^(sigma-1));
+
+tol=1; alb = eps; aub = 1-eps;
+
+while tol>1e-5
+
+    a = (alb+aub)/2;
+    foc = ratio_implied(a) - ratio_phi;
+    if foc<=0
+        alb = a;
+    else
+        aub = a;
+    end
+    tol = abs(foc);
+    tol
+    pause
+end
+=#
