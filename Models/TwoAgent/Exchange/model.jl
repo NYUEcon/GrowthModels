@@ -191,10 +191,6 @@ function a1_resid(m::BCFL22C, ♠t, zbar, a1)
     if abs(σ1 - σ2) < 1e-14  # sigmas are the same, used closed form sb
         y = ((1-ω1)*(1-ω2)/(ω1*ω2))^(1/(σ1-1))*(a1/a2)
         b2 = zbar / (1 + y)
-
-        # cobb douglass
-        # x = (1-ω1)*(1-ω2)/(ω1*ω2)*(a2/a1)
-        # b2 = zbar*x/(1+x)
     else
         error("implement solver for sb")
     end
@@ -215,11 +211,11 @@ function a1_resid(m::BCFL22C, ♠t, zbar, a1)
     ♠t - rhs2, (a1, a2, b1, b2, c1, c2)
 end
 
-function get_allocation(m::BCFL22C, ♠, zbar)
-    a1 = brent(foo->a1_resid(m, ♠, zbar, foo)[1], 1e-15, 1-1e-15)
+function get_allocation(m::BCFL22C, ♠t, zbart)
+    a1t = brent(foo->a1_resid(m, ♠t, zbart, foo)[1], 1e-15, 1-1e-15)
 
     # evaluate once more to get the allocation at the optimal a1
-    a1, a2, b1, b2, c1, c2 = a1_resid(m, ♠, zbar, a1)[2]
+    a1t, a2t, b1t, b2t, c1t, c2t = a1_resid(m, ♠t, zbart, a1t)[2]
 end
 
 # ------------------- #
@@ -271,11 +267,12 @@ end
 # ----------------------- #
 # VFI for post simulation #
 # ----------------------- #
-function get_eds_grid(vectors::Vector...; δ::Float64=0.01, Mbar::Int=50)
-    capT = length(vectors[1])
+get_eds_grid(vectors::Vector...; δ::Float64=0.01, Mbar::Int=50) =
+    get_eds_grid(hcat(vectors...); δ=δ, Mbar=Mbar)
 
-    sim_data = hcat(vectors...)
+function get_eds_grid(sim_data::Matrix; δ::Float64=0.01, Mbar::Int=50)
     density = eval_density(sim_data, sim_data)[1]
+    capT = size(sim_data, 1)
     inds = sortperm(density)
     n_drop = ceil(Int, capT*0.01)
     sort_data = sim_data[inds, :]
@@ -285,6 +282,10 @@ function get_eds_grid(vectors::Vector...; δ::Float64=0.01, Mbar::Int=50)
     eds = eds_M(sort_data, Mbar)
 end
 
+"""
+Given scalars for ♠ and zbar, return vectors of ♠' and zbar' for every
+ϵ' in m.ϵ
+"""
 function get_next_grid(m::BCFL22C, κ::Vector, ♠::Real, zbar::Real)
     lzbar = log(zbar)
     ϵ1, ϵ2 = m.ϵ[:, 1], m.ϵ[:, 2]
@@ -298,6 +299,16 @@ function get_next_grid(m::BCFL22C, κ::Vector, ♠::Real, zbar::Real)
     return ♠p, exp(lzbarp), exp(lgp)
 end
 
+"""
+Given vectors for ♠ and zbar, return matrices of ♠' and zbar' for every
+ϵ' in m.ϵ.
+
+The layout of the matrix is such that
+
+```
+♠[i, j] = ♠'(♠_i, ϵ_j)
+```
+"""
 function get_next_grid(m::BCFL22C, κ::Vector, ♠::Vector, zbar::Vector)
     lzbar = log(zbar)
 
@@ -515,15 +526,6 @@ function main()
     linear_coefs(m, lzbar, lg, κ, maxiter=5)
 end
 
-#=
-What I need to do to implement the GSSA algorithm:
-
-- Simulate exog state. For me this is xi
-- Initial guess for the endogenous state
-- Guess initial policy rules
-- Repeat the following:
-    - Use policy rules to simulate
-=#
 end  # module
 
 
