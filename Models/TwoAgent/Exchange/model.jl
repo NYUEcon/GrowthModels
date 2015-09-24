@@ -84,11 +84,11 @@ end
 # TODO: check the sigma parameters
 function BCFL22C(;ρ1::Real=-1.0 , α1::Real=-9.0, β1::Real=0.999,  # EZ 1
                   η1::Real=1.0, ν1::Real=0.1,                     # production 1
-                  σ1::Real=0.6, ω1::Real=0.7,                     # composite 1
+                  σ1::Real=0.6, ω1::Real=0.1,                     # composite 1
                   δ1::Real=0.025, ζ1::Real=0.001,                 # other 1
                   ρ2::Real=-1.0 , α2::Real=-9.0, β2::Real=0.999,  # EZ 2
                   η2::Real=1.0, ν2::Real=0.1,                     # production 2
-                  σ2::Real=0.6, ω2::Real=0.7,                     # composite 2
+                  σ2::Real=0.6, ω2::Real=0.1,                     # composite 2
                   δ2::Real=0.025, ζ2::Real=0.001,                 # other 2
                   γ::Real=0.9, nϵ::Int=4)                         # exog
     agent1 = Agent(ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1)
