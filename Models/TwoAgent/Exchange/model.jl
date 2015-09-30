@@ -267,21 +267,6 @@ end
 # ----------------------- #
 # VFI for post simulation #
 # ----------------------- #
-get_eds_grid(vectors::Vector...; δ::Float64=0.01, Mbar::Int=50) =
-    get_eds_grid(hcat(vectors...); δ=δ, Mbar=Mbar)
-
-function get_eds_grid(sim_data::Matrix; δ::Float64=0.01, Mbar::Int=50)
-    density = eval_density(sim_data, sim_data)[1]
-    capT = size(sim_data, 1)
-    inds = sortperm(density)
-    n_drop = ceil(Int, capT*0.01)
-    sort_data = sim_data[inds, :]
-    sort_data = sort_data[n_drop:end, :]
-
-    # now construct eds on this "thinned" out data
-    eds = eds_M(sort_data, 50)
-end
-
 function _next_grid(m::BCFL22C, κ::Vector, l♠, lzbar, ϵ1, ϵ2)
     # get exog grid
     lzbarp = (2.0*m.γ - 1.0)*lzbar .+ (m.agent1.ζ*ϵ1 - m.agent2.ζ*ϵ2)

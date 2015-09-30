@@ -253,6 +253,22 @@ function eds_M(data::Matrix{Float64}, M::Int, ϵ1::Float64=NaN, ϵ2::Float64=NaN
     return eds_1
 end
 
+# Small helper functions to handle intermediate steps of creating the eds
+get_eds_grid(vectors::Vector...; δ::Float64=0.01, Mbar::Int=50) =
+    get_eds_grid(hcat(vectors...); δ=δ, Mbar=Mbar)
+
+function get_eds_grid(sim_data::Matrix; δ::Float64=0.01, Mbar::Int=50)
+    density = eval_density(sim_data, sim_data)[1]
+    capT = size(sim_data, 1)
+    inds = sortperm(density)
+    n_drop = ceil(Int, capT*δ)
+    sort_data = sim_data[inds, :]
+    sort_data = sort_data[n_drop:end, :]
+
+    # now construct eds on this "thinned" out data
+    eds = eds_M(sort_data, Mbar)
+end
+
 """
 Construct an EDS of `data` using the cheap algorithm for computing the
 essentially ergodic set. Given a set of simulated data `P`, the algorithm
@@ -424,13 +440,14 @@ function n_complete(n::Int, D::Int)
     out
 end
 
-@generated function complete_polynomial!{N}(z::Matrix, d::Degree{N},
-                                            out::Matrix)
+@generated function complete_polynomial!{N}(z::AbstractMatrix, d::Degree{N},
+                                            out::AbstractMatrix)
     complete_polynomial_impl!(z, d, out)
 end
 
-function complete_polynomial_impl!{T,N}(z::Type{Matrix{T}}, ::Type{Degree{N}},
-                                        ::Type{Matrix{T}})
+function complete_polynomial_impl!{T,N}(z::Type{AbstractMatrix{T}},
+                                        deg::Type{Degree{N}},
+                                        out::Type{AbstractMatrix{T}})
     quote
         nobs, nvar = size(z)
         if size(out) != (nobs, n_complete(nvar, $N))
@@ -466,14 +483,15 @@ function complete_polynomial_impl!{T,N}(z::Type{Matrix{T}}, ::Type{Degree{N}},
     end
 end
 
-function complete_polynomial{T}(z::Matrix{T}, d::Int)
+function complete_polynomial{T}(z::AbstractMatrix{T}, d::Int)
     nobs, nvar = size(z)
     out = Array(T, nobs, n_complete(nvar, d))
-    complete_polynomial!(z, Degree{d}(), out)::Matrix{T}
+    complete_polynomial!(z, Degree{d}(), out)::AbstractMatrix{T}
 end
 
-function complete_polynomial!{T}(z::Matrix{T}, d::Int, out::Matrix{T})
-    complete_polynomial!(z, Degree{d}(), out)::Matrix{T}
+function complete_polynomial!{T}(z::AbstractMatrix{T}, d::Int,
+                                 out::AbstractMatrix{T})
+    complete_polynomial!(z, Degree{d}(), out)
 end
 
 # ------------------------------------------------- #
