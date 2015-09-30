@@ -10,7 +10,7 @@ export normalize, PCA, un_transform, eds_ϵ, eds_M, eds_cheap, eval_density,
        complete_polynomial!, qnwmonomial
 
 function selectperm(v::AbstractVector,
-                    k::Union(Int,OrdinalRange);
+                    k::Union{Int, OrdinalRange};
                     lt::Function=isless,
                     by::Function=identity,
                     rev::Bool=false,
