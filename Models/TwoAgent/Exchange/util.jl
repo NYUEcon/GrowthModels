@@ -5,8 +5,8 @@ using Base.Cartesian: @nloops, @nexprs
 using Docile
 @document
 
-export normalize, PCA, un_transform, eds_ϵ, eds_M, eds_cheap, eval_density,
-       qnwgh, n_complete, complete_inds, complete_polynomial,
+export normalize, PCA, un_transform, eds_ϵ, eds_M, eds_cheap, get_eds_grid,
+       eval_density, qnwgh, n_complete, complete_inds, complete_polynomial,
        complete_polynomial!, qnwmonomial
 
 function selectperm(v::AbstractVector,
@@ -440,14 +440,14 @@ function n_complete(n::Int, D::Int)
     out
 end
 
-@generated function complete_polynomial!{N}(z::AbstractMatrix, d::Degree{N},
-                                            out::AbstractMatrix)
+@generated function complete_polynomial!{T,N}(z::Matrix, d::Degree{N}, out::Matrix{T})
     complete_polynomial_impl!(z, d, out)
+    out
 end
 
-function complete_polynomial_impl!{T,N}(z::Type{AbstractMatrix{T}},
+function complete_polynomial_impl!{T,N}(z::Type{Matrix{T}},
                                         deg::Type{Degree{N}},
-                                        out::Type{AbstractMatrix{T}})
+                                        out::Type{Matrix{T}})
     quote
         nobs, nvar = size(z)
         if size(out) != (nobs, n_complete(nvar, $N))
@@ -483,15 +483,17 @@ function complete_polynomial_impl!{T,N}(z::Type{AbstractMatrix{T}},
     end
 end
 
-function complete_polynomial{T}(z::AbstractMatrix{T}, d::Int)
+function complete_polynomial{T}(z::Matrix{T}, d::Int)
     nobs, nvar = size(z)
     out = Array(T, nobs, n_complete(nvar, d))
-    complete_polynomial!(z, Degree{d}(), out)::AbstractMatrix{T}
+    complete_polynomial!(z, Degree{d}(), out)
+    out
 end
 
-function complete_polynomial!{T}(z::AbstractMatrix{T}, d::Int,
-                                 out::AbstractMatrix{T})
+function complete_polynomial!{T}(z::Matrix{T}, d::Int,
+                                 out::Matrix{T})
     complete_polynomial!(z, Degree{d}(), out)
+    out
 end
 
 # ------------------------------------------------- #
