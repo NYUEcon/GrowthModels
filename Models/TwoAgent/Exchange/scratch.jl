@@ -1,14 +1,38 @@
 using Bokeh; autoopen(true)
 
 m = BCFL22C()
-lzbar, lg = simulate_exog(m)
+@time lzbar, lg = simulate_exog(m);
 # κ = [0.05, 0.95, -0.1 0.5]
 κ = [0.0, 1.0, 0.0]
 κ0, κ1, κ2 = κ
 ξ = 0.05
-
+deg = 3
 sim_data = X[1:capT-1, 2:end]
 l♠, κ = main()
+
+fstv = FullState(1.0, 2.0, 3.0, 5.0)
+fst = FullState(κ, κ, κ, κ)
+asarray(fst)
+
+st = TimeTState([1,2], [3,4])
+
+for (i, x) in enumerate(fst)
+    @show i,x
+end
+
+Matrix(fst)
+
+plot(grid[:, 1], grid[:, 2], "b*")
+
+plot(LHS)
+plot(fsts.l♠)
+
+pf = PolicyFunction{1}(ones(5))
+evaluate(pf, fst)
+
+Matrix(fst)
+
+Matrix{Float64}(fst)
 
 
 plot(l♠)
@@ -112,3 +136,12 @@ while tol>1e-5
     pause
 end
 =#
+n_complete(2, 3)
+
+pf = PolicyFunction{3}(rand(10))
+@code_warntype evaluate(pf, [1.0, 2.0])
+
+state = [1.0, 2.0]
+complete_polynomial([1 3], 3)
+
+complete_polynomial(rand(5, 2), 3)
