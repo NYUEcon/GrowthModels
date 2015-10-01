@@ -100,6 +100,12 @@ end
 Base.writemime(io::IO, ::MIME"text/plain", m::BCFL22C) =
     println(io, "BCFL model with 2 goods and 2 agents")
 
+
+@inline function exog_step(m::BCFL22C, lzbar, ϵ1, ϵ2)
+    lzbarp = (2*m.γ - 1)*lzbar .+ (m.agent1.ζ*ϵ1 - m.agent2.ζ*ϵ2)
+    lgp = (1-m.γ)*lzbar .+ m.agent1.ζ*ϵ1
+    lzbarp, lgp
+end
 """
 Use this function to generate simulated values for the exogenous state.
 
@@ -114,10 +120,7 @@ So each increment is normally distributed with mean
 (2γ-1)(log z_{2,t} - log z_{1,t}) and variance ζ1 + ζ2
 """
 function simulate_exog(m::BCFL22C, capT::Int=10000, seed::Int=1)
-    # simplify notation and set random seed
-    coef_zbar = (2*m.γ - 1)
-    coef_g = (m.γ - 1)
-    ζ1, ζ2 = m.agent1.ζ, m.agent2.ζ
+    # set random seed
     srand(seed)
 
     # allocate memory and set initial state
@@ -125,12 +128,8 @@ function simulate_exog(m::BCFL22C, capT::Int=10000, seed::Int=1)
     lg = zeros(capT)
     lzbar[1] = 0.0
 
-    for t=2:capT
-        ϵ1, ϵ2 = randn(), randn()
-        old_lzbar = lzbar[t-1]
-
-        lzbar[t] = coef_zbar*old_lzbar + ζ1*ϵ1 - ζ2*ϵ2
-        lg[t] = coef_g*old_lzbar + ζ1*ϵ1
+    @inbounds for t=2:capT
+        lzbar[t], lg[t] = exog_step(m, lzbar[t-1], rand(), rand())
     end
     lzbar, lg
 end
@@ -176,9 +175,11 @@ equivalent. However, when a1 is very small, the b2 can be very close to zbar,
 making it numerically unstable to divide by b2. So, we prefer the first equation
 above
 """
-function a1_resid(m::BCFL22C, l♠t, lzbar, a1)
+function a1_resid(m::BCFL22C, lstate::Vector, a1)
+    # simplify notation
     ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1 = _unpack(m.agent1)
     ρ2, β2, α2, η2, ν2, ω2, σ2, δ2, ζ2 = _unpack(m.agent2)
+    l♠t, lzbar = lstate
 
     a2 = 1.0 - a1
 
@@ -208,36 +209,131 @@ function a1_resid(m::BCFL22C, l♠t, lzbar, a1)
     log(rhs) - l♠t, (a1, a2, b1, b2, c1, c2)
 end
 
-function get_allocation(m::BCFL22C, l♠t, lzbart)
-    a1t = brent(foo->a1_resid(m, l♠t, lzbart, foo)[1], 1e-15, 1-1e-15)
+function get_allocation(m::BCFL22C, lstate::Vector)
+    a1t = brent(foo->a1_resid(m, lstate, foo)[1], 1e-15, 1-1e-15)
 
     # evaluate once more to get the allocation at the optimal a1
-    a1t, a2t, b1t, b2t, c1t, c2t = a1_resid(m, l♠t, lzbart, a1t)[2]
+    a1t, a2t, b1t, b2t, c1t, c2t = a1_resid(m, lstate, a1t)[2]
 end
+
+# ------------------- #
+# PolicyFunction type #
+# ------------------- #
+immutable PolicyFunction{D}  # type parameter is complete polynomial degree
+    coefs::Vector{Float64}
+end
+
+function evaluate{D}(pf::PolicyFunction{D}, state::Vector)
+    X = complete_polynomial(reshape(state, 1, length(state)), D)
+    y = X*pf.coefs
+    return y[1]  # return only element of our output
+end
+
+function evaluate{D}(pf::PolicyFunction{D}, state::Matrix)
+    X = complete_polynomial(state, D)
+    y = X*pf.coefs
+    return y
+end
+
+function evaluate!{D}(pf::PolicyFunction{D}, state::Matrix, X_buf::Matrix,
+                      y_buf::Vector)
+    complete_polynomial!(state, D, X_buf)  # fill in X_buf
+    A_mul_B!(y_buf, X_buf, pf.coefs)  # fill in y_buf = X_buf * coefs
+    y_buf
+end
+
+# -------------------------------- #
+# Utilities to handle state vector #
+# -------------------------------- #
+"""
+Given scalars for ♠ and zbar, return vectors of ♠' and zbar' for every
+ϵ' in m.ϵ
+"""
+function get_next_grid(m::BCFL22C, pf::PolicyFunction, l♠::Real, lzbar::Real)
+    ϵ1, ϵ2 = m.ϵ[:, 1], m.ϵ[:, 2]
+    lzbarp, lgp = exog_step(m, lzbar, ϵ1, ϵ2)
+
+    # build state and use pf to step ♠ forward
+    state = build_state(l♠, lzbar, lzbarp, lgp)
+    l♠p = evaluate(pf, state)
+
+    return l♠p, lzbarp, lgp
+end
+
+"""
+Given vectors for ♠ and zbar, return matrices of ♠' and zbar' for every
+ϵ' in m.ϵ.
+
+The layout of the matrix is such that
+
+```
+♠[i, j] = ♠'(♠_i, ϵ_j),
+```
+
+which means
+
+```
+E[♠'] = matrix_from_this_func * m.Π
+```
+"""
+function get_next_grid(m::BCFL22C, pf::PolicyFunction, l♠::Vector, lzbar::Vector)
+    # extract dimensions
+    N = length(l♠)
+    J = size(m.ϵ, 1)
+
+    # allocte memory. Create transpose. Fill in columns, transpose before return
+    l♠p = Array(Float64, J, N)
+    lzbarp = similar(l♠p)
+    lgp = similar(l♠p)
+
+    # fill in row by row by calling one state function above
+    for i=1:N
+        get_next_grid(m, pf, l♠[i], lzbar[i])[1]
+        l♠p[:, i], lzbarp[:, i], lgp[:, i] = get_next_grid(m, pf, l♠[i], lzbar[i])
+    end
+
+    # transpose before returning
+    return l♠p', lzbarp', lgp'
+
+end
+
+@inline function build_state(l♠::Real, lzbar::Real, lzbarp::Vector, lgp::Vector)
+    N = length(lzbarp)
+    [fill(l♠, N) fill(lzbar, N) lzbarp lgp]
+end
+
+@inline function build_state(l♠::Real, lzbar::Real, lzbarp::Real, lgp::Real)
+    N = length(lzbarp)
+    [l♠ lzbar lzbarp lgp]
+end
+
+# @inline function build_state(l♠::Real, lzbar::Real, lzbarp::Real, lgp::Real)
+#     M = size(lzbarp, 2)
+#     [l♠ lzbar lzbarp lgp]
+# end
 
 # ------------------- #
 # ValueFunctions type #
 # ------------------- #
-immutable ValueFunctions
-    deg::Int
+immutable ValueFunctions{D}
     coefs::Matrix{Float64}  # first column U_1, second col U_2
 end
 
 # return a Vector of [U_1(l♠, zbar), U_2(l♠, lzbar)]. Reshape into vector
-value_funcs(vfs::ValueFunctions, l♠::Real, lzbar::Real) =
-    reshape(complete_polynomial([l♠ lzbar], vfs.deg) * vfs.coefs, 2)
+value_funcs{D}(vfs::ValueFunctions{D}, l♠::Real, lzbar::Real) =
+    reshape(complete_polynomial([l♠ lzbar], D) * vfs.coefs, 2)
 
-value_funcs(vfs::ValueFunctions, l♠::Vector, lzbar::Vector) =
-    complete_polynomial([l♠ lzbar], vfs.deg) * vfs.coefs
+value_funcs{D}(vfs::ValueFunctions{D}, l♠::Vector, lzbar::Vector) =
+    complete_polynomial([l♠ lzbar], D) * vfs.coefs
 
 """
-This function assumes you are passing the values of (l♠, zbar) in period t.
+This method assumes you are passing the values of (l♠, zbar) in period t.
 It will construct the implied (l♠', zbar', g') for all integration nodes in
 m.ϵ and then hand off to the function below
 """
-function certainty_equiv(m::BCFL22C, κ::Vector, vfs::ValueFunctions, l♠::Real,
-                         lzbar::Real)
-    l♠p, lzbarp, lgp = get_next_grid(m, κ, l♠, lzbar)
+function certainty_equiv(m::BCFL22C, pf::PolicyFunction, vfs::ValueFunctions,
+                         l♠::Real, lzbar::Real)
+    l♠p, lzbarp, lgp = get_next_grid(m, pf, l♠, lzbar)
     certainty_equiv(m, vfs, l♠p, lzbarp, lgp)
 end
 
@@ -258,7 +354,6 @@ function certainty_equiv(m::BCFL22C, vfs::ValueFunctions, l♠p::Vector,
     μ1 = dot(m.Π, (exp(lgp).*VF[:, 1]).^(m.agent1.α))^(1.0/m.agent1.α)
     μ2 = dot(m.Π, (exp(lgp).*VF[:, 2]).^(m.agent2.α))^(1.0/m.agent2.α)
     μ1, μ2
-
 end
 
 # TODO: add a "vectorized" version of certainty_equiv that evaluates
@@ -267,49 +362,7 @@ end
 # ----------------------- #
 # VFI for post simulation #
 # ----------------------- #
-function _next_grid(m::BCFL22C, κ::Vector, l♠, lzbar, ϵ1, ϵ2)
-    # get exog grid
-    lzbarp = (2.0*m.γ - 1.0)*lzbar .+ (m.agent1.ζ*ϵ1 - m.agent2.ζ*ϵ2)
-    lgp = (m.γ - 1.0)*lzbar .+ m.agent1.ζ*ϵ1
-
-    # use κ to step ♠ forward
-    l♠p = κ[1] + κ[2]*l♠ .+ κ[3]*lzbarp + κ[4]*lgp
-
-    return l♠p, lzbarp, lgp
-end
-
-"""
-Given scalars for ♠ and zbar, return vectors of ♠' and zbar' for every
-ϵ' in m.ϵ
-"""
-function get_next_grid(m::BCFL22C, κ::Vector, l♠::Real, lzbar::Real)
-    _next_grid(m, κ, l♠, lzbar, m.ϵ[:, 1], m.ϵ[:, 2])
-end
-
-"""
-Given vectors for ♠ and zbar, return matrices of ♠' and zbar' for every
-ϵ' in m.ϵ.
-
-The layout of the matrix is such that
-
-```
-♠[i, j] = ♠'(♠_i, ϵ_j),
-```
-
-which means
-
-```
-E[♠'] = matrix_from_this_func * m.Π
-```
-"""
-function get_next_grid(m::BCFL22C, κ::Vector, l♠::Vector, lzbar::Vector)
-    # NOTE this is the same as the method on scalar l♠ and lzbar except
-    # that we traspose the epsilons so broadcasting can make the matrix for us
-    _next_grid(m, κ, l♠, lzbar, m.ϵ[:, 1]', m.ϵ[:, 2]')
-end
-
-# returns two functions that evaluate U_1(♠, zbar) and U_2(♠, zbar)
-function vfi_from_simulation(m::BCFL22C, κ::Vector, grid::Matrix{Float64};
+function vfi_from_simulation(m::BCFL22C, pf::PolicyFunction, grid::Matrix{Float64};
                              deg::Int=3, tol=1e-8, maxit::Int=5000)
     # unpack
     ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1 = _unpack(m.agent1)
@@ -318,7 +371,7 @@ function vfi_from_simulation(m::BCFL22C, κ::Vector, grid::Matrix{Float64};
     Ngrid = length(l♠grid)
 
     # get consumption on the grid
-    cs = map((x,y)->get_allocation(m, x, y)[5:6], l♠grid, lzbargrid)
+    cs = mapslices(state->get_allocation(m, state)[5:6], grid, 2)
     c1 = map(x->getindex(x, 1), cs)
     c2 = map(x->getindex(x, 2), cs)
 
@@ -328,10 +381,10 @@ function vfi_from_simulation(m::BCFL22C, κ::Vector, grid::Matrix{Float64};
     # get coefficients for degree deg complete poly in ♠ and zbar for the
     # initial guess that U_i = c_i
     coefs = basis_mat \ [c1 c2]
-    vfs = ValueFunctions(deg, coefs)
+    vfs = ValueFunctions{deg}(coefs)
 
     # advance grid one time step using integration nodes m.ϵ
-    l♠p, lzbarp, lgp = get_next_grid(m, κ, l♠grid, lzbargrid)
+    l♠p, lzbarp, lgp = get_next_grid(m, pf, l♠grid, lzbargrid)
 
     # iteration manager stuff + allocate for value functions
     err = 10.0
@@ -357,7 +410,7 @@ function vfi_from_simulation(m::BCFL22C, κ::Vector, grid::Matrix{Float64};
 
         # update coefficient vector
         coefs = basis_mat \ [U1 U2]
-        vfs = ValueFunctions(deg, coefs)
+        vfs = ValueFunctions{deg}(coefs)
 
         # update cache of previous U_i
         copy!(U1_old, U1)
@@ -377,7 +430,7 @@ now construct LHS of regression using the euler equation:
 ♠' = ♠ * beta_1/beta_2 * g'^(α1-α2) * (c_1'/c_1)^(ρ_1-1) *
      (c_2'/c_2)^(1-ρ_2) * (U_1'/μ_1)^(α_1 - ρ_1) *(U_2'/μ_2)^(ρ_2 - α_2)
 =#
-function eval_euler_eqn!(m::BCFL22C, κ::Vector, vfs::ValueFunctions,
+function eval_euler_eqn!(m::BCFL22C, pf::PolicyFunction, vfs::ValueFunctions,
                          l♠::Vector, lzbar::Vector, lg_all::Vector, c1::Vector,
                          c2::Vector, capT::Int,
                          LHS::Vector)
@@ -386,7 +439,7 @@ function eval_euler_eqn!(m::BCFL22C, κ::Vector, vfs::ValueFunctions,
 
     for t=1:capT-1  # can only go to capT-1 b/c we need c[t+1]
         # get μ_t based on current state
-        μ1, μ2 = certainty_equiv(m, κ, vfs, l♠[t], lzbar[t])
+        μ1, μ2 = certainty_equiv(m, pf, vfs, l♠[t], lzbar[t])
 
         # get U_{t+1} from simulation
         U1p, U2p = value_funcs(vfs, l♠[t+1], lzbar[t+1])
@@ -407,37 +460,36 @@ end
 """
 Do the simulation. Updates c1, c2, ♠, and X in place
 """
-function do_simulation!(m::BCFL22C, κ::Vector, capT::Int, lg::Vector,
+function do_simulation!(m::BCFL22C, pf::PolicyFunction, capT::Int, lg::Vector,
                         lzbar::Vector, l♠::Vector, c1::Vector, c2::Vector,
                         X::Matrix)
-    κ0, κ1, κ2, κ3 = κ
-
     # simulate ♠ forward and solve for c1, c2 along the way. Need them so
     # I can evaluate the euler equation later
+    state_buf = Array(Float64, 4)
     for t=1:capT
-        # extract time t state
-        l♠t = l♠[t]
-        lzt = lzbar[t]
-        lztp = lzbar[t+1]
-        lgp = lg[t+1]
+        # extract time t state [l♠_t, lzbar_t, lzbar_{t+1}, lg_{t+1}]
+        state_buf[1] = l♠[t]
+        state_buf[2] = lzbar[t]
+        state_buf[3] = lzbar[t+1]
+        state_buf[4] = lg[t+1]
 
         # update ♠_{t+1}. Is linear in ♠_t and log zbar_{t+1}
-        l♠p = κ0+ κ1*l♠t + κ2*lztp + κ3*lgp
+        l♠p = evaluate(pf, state_buf)
         l♠[t+1] = l♠p
 
         # Solve for the optimal allocation at this ♠, zbart and store
         # consumption in vectors
-        a1, a2, b1, b2, c1[t], c2[t] = get_allocation(m, l♠t, lzt)
+        a1, a2, b1, b2, c1[t], c2[t] = get_allocation(m, state_buf[1:2])
 
         # fill in this row of regresion matrix
-        X[t, 2] = l♠t
+        X[t, 2] = state_buf[1]
     end
 end
 
 
 function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
                       lg::Vector{Float64}=simulate_exog(m)[2],
-                      κ::Vector{Float64}=[0.0, 0.95, 0.8];
+                      pf::PolicyFunction{1}=PolicyFunction{1}([0.0, 0.95, -0.95, 0.0, 0.0]);
                       maxiter::Int=10_000, grid_skip::Int=5,
                       verbose::Bool=true, print_skip::Int=1,
                       ξ::Float64=0.05)
@@ -465,7 +517,7 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
 
     # ♠ is ratio multipliers: φ_2/φ_1. Starts at 1.0, so logs at 0
     l♠ = zeros(capT+1)
-    X = [ones(capT) l♠[1:capT] lzbar[2:capT+1] lg[2:capT+1]]  # regression matrix
+    X = [ones(capT) l♠[1:capT] lzbar[1:capT] lzbar[2:capT+1] lg[2:capT+1]]  # regression matrix
     LHS = Array(Float64, capT-1)  # LHS of regression from euler equation
 
     l♠_old = fill(100.0, capT+1)
@@ -478,7 +530,7 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
         start_time = time()
 
         # do simulation. Updates ♠, c1, c2, and X inplace
-        do_simulation!(m, κ, capT, lg, lzbar, l♠, c1, c2, X)
+        do_simulation!(m, pf, capT, lg, lzbar, l♠, c1, c2, X)
 
         # build EDS grid on ♠ and lzbar terms in regression matrix
         if mod(it, grid_skip) == 0 || it == 0
@@ -487,16 +539,19 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
         end
 
         # do VFI to get approximation to value functions/certainty equiv
-        vfs = vfi_from_simulation(m, κ, grid; deg=3, tol=1e-8, maxit=5000)
+        vfs = vfi_from_simulation(m, pf, grid; deg=3, tol=1e-8, maxit=5000)
 
         # update LHS
-        eval_euler_eqn!(m, κ, vfs, l♠, lzbar, lg, c1, c2, capT, LHS)
+        eval_euler_eqn!(m, pf, vfs, l♠, lzbar, lg, c1, c2, capT, LHS)
 
-        # compute dist, copy cache, update coefs
+        # compute dist, copy cache
         dist = mean(abs(1.0 - exp(l♠ - l♠_old)))
         copy!(l♠_old, l♠)
+
+        # update policy function
         κ_hat = X[1:capT-1, :] \ LHS[1:capT-1]
-        κ = ξ*κ_hat + (1-ξ)*κ
+        κ = ξ*κ_hat + (1-ξ)*pf.coefs
+        pf = PolicyFunction{1}(κ)
 
         it += 1
         if verbose && mod(it, print_skip) == 0
@@ -506,16 +561,17 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
         end
     end
 
-    l♠, κ
+    l♠, pf
 
 end
 
 function main()
     m = BCFL22C()
     lzbar, lg = simulate_exog(m)
-    κ = [0.0, 0.95, -0.95, 0.0]
+    κ = [0.0, 0.95, -0.95, 0.0, 0.0]
+    pf = PolicyFunction{1}(κ)
     ξ = 0.05
-    linear_coefs(m, lzbar, lg, κ, maxiter=15)
+    linear_coefs(m, lzbar, lg, pf, maxiter=15)
 end
 
 end  # module
