@@ -108,43 +108,25 @@ Base.writemime(io::IO, ::MIME"text/plain", m::BCFL22C) =
     lgp = (1-m.γ)*lzbar .+ m.ζ1*ϵ1
     lzbarp, lgp
 end
-"""
-Use this function to generate simulated values for the exogenous state.
 
-Is uses the equation
-
-```tex
-log z_{2,t+1} - log z_{1,t+1} = (2γ-1)(log z_{2,t}-log z_{1,t})
-                                + w_{2,t+1} - w_{1,t+1}
-```
-
-So each increment is normally distributed with mean
-(2γ-1)(log z_{2,t} - log z_{1,t}) and variance ζ1 + ζ2
-"""
 function simulate_exog(m::BCFL22C, capT::Int=10000, seed::Int=1)
-    # set random seed
+    # set random seed, then hand of to real method
     srand(seed)
-
-    # allocate memory and set initial state
-    lzbar = zeros(capT)
-    lg = zeros(capT)
-    lzbar[1] = 0.0
-
-    @inbounds for t=2:capT
-        lzbar[t], lg[t] = exog_step(m, lzbar[t-1], rand(), rand())
-    end
-    lzbar, lg
+    simulate_exog(m, randn(capT), randn(capT))
 end
 
 # This is `simulate_exog` called in IRF
-function simulate_exog(m::BCFL22C, capT::Int, e1::Vector, e2::Vector)
+function simulate_exog(m::BCFL22C, ϵ1::Vector, ϵ2::Vector)
+
+    capT = length(ϵ1)
+    capT == length(ϵ2) || error("ϵ1 and ϵ2 should be the same length")
 
     # Allocate Space
     lzbar = zeros(capT)
     lg = zeros(capT)
 
     @inbounds for t=2:capT
-        lzbar[t], lg[t] = exog_step(m, lzbar[t-1], e1[t], e2[t])
+        lzbar[t], lg[t] = exog_step(m, lzbar[t-1], ϵ1[t], ϵ2[t])
     end
 
     return lzbar, lg
@@ -565,107 +547,24 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
         if verbose && mod(it, print_skip) == 0
             tot_time = time() - start_time
             @printf "Iteration %i, dist %2.5e, time %5.5e\n" it dist tot_time
-            @show [κ κ_hat]'
         end
     end
 
-    l♠, pf
+    fsts, pf
 
 end
 
 function main()
     m = BCFL22C()
     lzbar, lg = simulate_exog(m)
-    κ = [0.0, 0.95, -0.95, 0.0, 0.0]
+    κ = [-4.594267427095823e-7,0.9999976514132554,1.8822879898974099,-1.8874374369713394,2.9809481869877624e-7]
     pf = PolicyFunction{1}(κ)
     ξ = 0.05
-    linear_coefs(m, lzbar, lg, pf, maxiter=500)
+    fsts, pf = linear_coefs(m, lzbar, lg, pf, maxiter=500)
+    m, fsts, pf
 end
 
-# ------------------------------------------------------------------- #
-# Analysis of stuff
-# ------------------------------------------------------------------- #
-function plot_allocations(m::BCFL22C, allocations::Array{Float64, 2})
-    # Create Plot Object
-    fig_1, ax_1 = subplots(3, 1)
-    capT = size(allocations, 2)
-    tTt = collect(range(1, capT))
-
-    # Plot (a1, b2)
-    ax_1[1][:plot](tTt, allocations[1, :], label="a1")
-    ax_1[1][:plot](tTt, allocations[4, :], label="b2")
-    ax_1[1][:set_title]("Home Goods")
-
-    # Plot (a2, b1)
-    ax_1[2][:plot](tTt, allocations[2, :], label="a2")
-    ax_1[2][:plot](tTt, allocations[3, :], label="b1")
-    ax_1[2][:set_title]("Foreign Goods")
-
-    # Plot (c1, c2)
-    ax_1[3][:plot](tTt, allocations[5, :], label="c1")
-    ax_1[3][:plot](tTt, allocations[6, :], label="c2")
-    ax_1[3][:set_title]("Consumption")
-
-    return fig, ax
-end
-
-function simulate_allocations(m::BCFL22C, pf::PolicyFunction,
-                              fsts::FullState, l♠0::Float64)
-
-    # Allocate Space
-    capT = length(fsts) - 1
-    allocations = Array(Float64, 6, capT)
-
-    # simulate ♠ forward and solve for c1, c2 along the way. Need them so
-    # I can evaluate the euler equation later
-    for t=1:capT
-        # extract time t state
-        fst = fsts[t]
-
-        # update ♠_{t+1}. Is linear in ♠_t and log zbar_{t+1}
-        l♠p = evaluate(pf, fst)
-        fsts.l♠[t+1] = l♠p
-
-        # Solve for the optimal allocation at this ♠, zbart and store
-        # consumption in vectors
-        a1, a2, b1, b2, c1, c2 = get_allocation(m, fst)
-        allocations[:, t] = [a1, a2, b1, b2, c1, c2]
-
-    end
-
-    return allocations, fsts
-end
-
-function impulse_response(m::BCFL22C, pf::PolicyFunction, capT::Int, l♠0::Float64)
-
-    # Create a one standard deviation shock for each epsilon
-    e1_shock = squeeze(eye(1, capT+1), 1)
-    e2_shock = squeeze(eye(1, capT+1), 1)
-    # e3_shock = squeeze(eye(1, capT), 1)
-    zero_shock = zeros(capT+1)
-
-    # Simulate Exogenous processes
-    lzbar_1, lg_1 = simulate_exog(m, capT+1, e1_shock, zero_shock)
-    fsts_1 = FullState(zeros(capT+1), lzbar_1,
-                       [lzbar_1[2:capT+1]; NaN], [lg_1[2:capT+1]; NaN])
-    lzbar_2, lg_2 = simulate_exog(m, capT+1, zero_shock, e2_shock)
-    fsts_2 = FullState(zeros(capT+1), lzbar_2,
-                       [lzbar_2[2:capT+1]; NaN], [lg_2[2:capT+1]; NaN])
-
-    # Get allocations
-    allocations_1, fsts_1 = simulate_allocations(m, pf, fsts_1, l♠0)
-    allocations_2, fsts_2 = simulate_allocations(m, pf, fsts_2, l♠0)
-
-    # Plot allocations
-    fig_1, ax_1 = plot_allocations(m, allocations_1)
-    fig_1[:suptitle]("Impulse Response to e1")
-    show()
-    fig_2, ax_2 = plot_allocations(m, allocations_2)
-    fig_2[:suptitle]("Impulse Response to e2")
-    show()
-
-    return allocations_1, allocations_2
-end
+include("analysis.jl")
 
 end  # module
 
