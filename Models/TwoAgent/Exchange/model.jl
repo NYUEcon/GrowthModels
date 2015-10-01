@@ -18,10 +18,9 @@ immutable Agent
     ω::Float64
     σ::Float64
     δ::Float64
-    ζ::Float64
 end
 
-_unpack(a::Agent) = (a.ρ, a.β, a.α, a.η, a.ν, a.ω, a.σ, a.δ, a.ζ)
+_unpack(a::Agent) = (a.ρ, a.β, a.α, a.η, a.ν, a.ω, a.σ, a.δ)
 
 # cobb douglass (σ = 0)
 # _agg(a::Agent, x, y) = x.^(1-a.ω) .* y.^(a.ω)
@@ -79,6 +78,8 @@ type BCFL22C
     γ::Float64
     ϵ::Matrix{Float64}
     Π::Vector{Float64}
+    ζ1::Float64
+    ζ2::Float64
 end
 
 # TODO: check the sigma parameters
@@ -91,10 +92,10 @@ function BCFL22C(;ρ1::Real=-1.0 , α1::Real=-9.0, β1::Real=0.999,  # EZ 1
                   σ2::Real=0.6, ω2::Real=0.1,                     # composite 2
                   δ2::Real=0.025, ζ2::Real=0.001,                 # other 2
                   γ::Real=0.9, nϵ::Int=4)                         # exog
-    agent1 = Agent(ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1)
-    agent2 = Agent(ρ2, β2, α2, η2, ν2, ω2, σ2, δ2, ζ2)
+    agent1 = Agent(ρ1, β1, α1, η1, ν1, ω1, σ1, δ1)
+    agent2 = Agent(ρ2, β2, α2, η2, ν2, ω2, σ2, δ2)
     ϵ, Π = EDSUtil.qnwgh(nϵ, 2)
-    BCFL22C(agent1, agent2, γ, ϵ, Π)
+    BCFL22C(agent1, agent2, γ, ϵ, Π, ζ1, ζ2)
 end
 
 Base.writemime(io::IO, ::MIME"text/plain", m::BCFL22C) =
@@ -102,8 +103,8 @@ Base.writemime(io::IO, ::MIME"text/plain", m::BCFL22C) =
 
 
 @inline function exog_step(m::BCFL22C, lzbar, ϵ1, ϵ2)
-    lzbarp = (2*m.γ - 1)*lzbar .+ (m.agent1.ζ*ϵ1 - m.agent2.ζ*ϵ2)
-    lgp = (1-m.γ)*lzbar .+ m.agent1.ζ*ϵ1
+    lzbarp = (2*m.γ - 1)*lzbar .+ (m.ζ1*ϵ1 - m.ζ2*ϵ2)
+    lgp = (1-m.γ)*lzbar .+ m.ζ1*ϵ1
     lzbarp, lgp
 end
 """
@@ -177,8 +178,8 @@ above
 """
 function a1_resid(m::BCFL22C, lstate::Vector, a1)
     # simplify notation
-    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1 = _unpack(m.agent1)
-    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2, ζ2 = _unpack(m.agent2)
+    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1 = _unpack(m.agent1)
+    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2 = _unpack(m.agent2)
     l♠t, lzbar = lstate
 
     a2 = 1.0 - a1
@@ -365,8 +366,8 @@ end
 function vfi_from_simulation(m::BCFL22C, pf::PolicyFunction, grid::Matrix{Float64};
                              deg::Int=3, tol=1e-8, maxit::Int=5000)
     # unpack
-    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1 = _unpack(m.agent1)
-    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2, ζ2 = _unpack(m.agent2)
+    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1 = _unpack(m.agent1)
+    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2 = _unpack(m.agent2)
     l♠grid, lzbargrid = grid[:, 1], grid[:, 2]
     Ngrid = length(l♠grid)
 
@@ -434,8 +435,8 @@ function eval_euler_eqn!(m::BCFL22C, pf::PolicyFunction, vfs::ValueFunctions,
                          l♠::Vector, lzbar::Vector, lg_all::Vector, c1::Vector,
                          c2::Vector, capT::Int,
                          LHS::Vector)
-    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1 = _unpack(m.agent1)
-    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2, ζ2 = _unpack(m.agent2)
+    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1 = _unpack(m.agent1)
+    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2 = _unpack(m.agent2)
 
     for t=1:capT-1  # can only go to capT-1 b/c we need c[t+1]
         # get μ_t based on current state
@@ -500,8 +501,8 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
     end
 
     # unpack
-    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1, ζ1 = _unpack(m.agent1)
-    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2, ζ2 = _unpack(m.agent2)
+    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1 = _unpack(m.agent1)
+    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2 = _unpack(m.agent2)
     capT = length(lzbar) - 1
 
     # unpack exog
