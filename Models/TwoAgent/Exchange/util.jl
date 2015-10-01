@@ -442,7 +442,6 @@ end
 
 @generated function complete_polynomial!{T,N}(z::Matrix, d::Degree{N}, out::Matrix{T})
     complete_polynomial_impl!(z, d, out)
-    out
 end
 
 function complete_polynomial_impl!{T,N}(z::Type{Matrix{T}},
@@ -456,7 +455,7 @@ function complete_polynomial_impl!{T,N}(z::Type{Matrix{T}},
 
         # reset first column to ones
         @inbounds for i=1:nobs
-            out[i, 1] = 1.0
+            out[i, 1] = one($T)
         end
 
         # set next nvar columns to input matrix
