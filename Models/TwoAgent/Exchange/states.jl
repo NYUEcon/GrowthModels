@@ -13,6 +13,7 @@ the policy function. That vector includes exogenous states at time t+1
 type TimeTState{T} <: AbstractState{T}
     l♠::T
     lzbar::T
+    v1::T
 end
 
 """
@@ -31,15 +32,17 @@ type FullState{T} <: AbstractState{T}
     lzbar::T
     lzbarp::T
     lgp::T
+    v1::T
+    V1p::T
 end
 
-@inline function FullState(st::TimeTState, lzbarp::Vector, lgp::Vector)
-    FullState(st.l♠, st.lzbar, lzbarp, lgp)
+@inline function FullState(st::TimeTState, lzbarp::Vector, lgp::Vector, v1::Vector, v1p::Vector)
+    FullState(st.l♠, st.lzbar, lzbarp, lgp, v1, vp)
 end
 
-@inline function FullState(l♠::Real, lzbar::Real, lzbarp::Vector, lgp::Vector)
+@inline function FullState(l♠::Real, lzbar::Real, lzbarp::Vector, lgp::Vector, v1::Vector, v1p::Vector))
     N = length(lzbarp)
-    FullState(fill(l♠, N), fill(lzbar, N), lzbarp, lgp)
+    FullState(fill(l♠, N), fill(lzbar, N), lzbarp, lgp, v1, v1p)
 end
 
 # --------------------------- #
@@ -67,4 +70,4 @@ Base.convert(::Type{Matrix}, st::AbstractState) =
     hcat([getfield(st, nm) for nm in fieldnames(st)]...)
 
 # Convert a FullState to a TimeTState -- just extract first to fields
-TimeTState(fst::FullState) = TimeTState(fst.l♠, fst.lzbar)
+TimeTState(fst::FullState) = TimeTState(fst.l♠, fst.lzbar, fst.v1)
