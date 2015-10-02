@@ -37,7 +37,7 @@ type FullState{T} <: AbstractState{T}
 end
 
 @inline function FullState(st::TimeTState, lzbarp::Vector, lgp::Vector, v1::Vector, v1p::Vector)
-    FullState(st.l♠, st.lzbar, lzbarp, lgp, v1, vp)
+    FullState(st.l♠, st.lzbar, lzbarp, lgp, st.v1, vp)
 end
 
 @inline function FullState(l♠::Real, lzbar::Real, lzbarp::Vector, lgp::Vector, v1::Vector, v1p::Vector))

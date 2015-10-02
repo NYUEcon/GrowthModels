@@ -13,16 +13,19 @@ function plot_allocations(m::BCFL22C, allocations::Array{Float64, 2})
     ax[1][:plot](tTt, allocations[1, :][:], label="a1")
     ax[1][:plot](tTt, allocations[4, :][:], label="b2")
     ax[1][:set_title]("Home Goods")
+    ax[1][:legend]()
 
     # Plot (a2, b1)
     ax[2][:plot](tTt, allocations[2, :][:], label="a2")
     ax[2][:plot](tTt, allocations[3, :][:], label="b1")
     ax[2][:set_title]("Foreign Goods")
+    ax[2][:legend]()
 
     # Plot (c1, c2)
     ax[3][:plot](tTt, allocations[5, :][:], label="c1")
     ax[3][:plot](tTt, allocations[6, :][:], label="c2")
     ax[3][:set_title]("Consumption")
+    ax[3][:legend]()
 
     fig[:tight_layout]()
 

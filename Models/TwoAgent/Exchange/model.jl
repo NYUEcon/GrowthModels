@@ -81,21 +81,22 @@ type BCFL22C
     Π::Vector{Float64}
     ζ1::Float64
     ζ2::Float64
+    ζv::Float64
 end
 
 # TODO: check the sigma parameters
 function BCFL22C(;ρ1::Real=-1.0 , α1::Real=-9.0, β1::Real=0.999,  # EZ 1
                   η1::Real=1.0, ν1::Real=0.1,                     # production 1
-                  σ1::Real=0.6, ω1::Real=0.1,                     # composite 1
+                  σ1::Real=-0.6, ω1::Real=0.1,                     # composite 1
                   δ1::Real=0.025, ζ1::Real=0.001,                 # other 1
                   ρ2::Real=-1.0 , α2::Real=-9.0, β2::Real=0.999,  # EZ 2
                   η2::Real=1.0, ν2::Real=0.1,                     # production 2
-                  σ2::Real=0.6, ω2::Real=0.1,                     # composite 2
+                  σ2::Real=-0.6, ω2::Real=0.1,                     # composite 2
                   δ2::Real=0.025, ζ2::Real=0.001,                 # other 2
-                  γ::Real=0.9, nϵ::Int=4)                         # exog
+                  ϕv::Real=0.9, ζv::Real=7.4e-2, γ::Real=0.9, nϵ::Int=4)  # exog
     agent1 = Agent(ρ1, β1, α1, η1, ν1, ω1, σ1, δ1)
     agent2 = Agent(ρ2, β2, α2, η2, ν2, ω2, σ2, δ2)
-    ϵ, Π = EDSUtil.qnwgh(nϵ, 2)
+    ϵ, Π = EDSUtil.qnwgh(nϵ, 3)
     BCFL22C(agent1, agent2, γ, ϵ, Π, ζ1, ζ2)
 end
 
@@ -103,10 +104,11 @@ Base.writemime(io::IO, ::MIME"text/plain", m::BCFL22C) =
     println(io, "BCFL model with 2 goods and 2 agents")
 
 
-@inline function exog_step(m::BCFL22C, lzbar, ϵ1, ϵ2)
+@inline function exog_step(m::BCFL22C, lzbar, vz, ϵ1, ϵ2, ϵ3)
     lzbarp = (2*m.γ - 1)*lzbar .+ (m.ζ1*ϵ1 - m.ζ2*ϵ2)
     lgp = (1-m.γ)*lzbar .+ m.ζ1*ϵ1
-    lzbarp, lgp
+    vp = (1 - m.ϕv)*m.ζ1 + m.ϕv*vz + m.ζv*ϵ3
+    lzbarp, lgp, vp
 end
 
 function simulate_exog(m::BCFL22C, capT::Int=10000, seed::Int=1)
@@ -124,12 +126,13 @@ function simulate_exog(m::BCFL22C, ϵ1::Vector, ϵ2::Vector)
     # Allocate Space
     lzbar = zeros(capT)
     lg = zeros(capT)
+    lz = zeros(capT)
 
     @inbounds for t=2:capT
-        lzbar[t], lg[t] = exog_step(m, lzbar[t-1], ϵ1[t], ϵ2[t])
+        lzbar[t], lg[t], lz[t] = exog_step(m, lzbar[t-1], ϵ1[t], ϵ2[t])
     end
 
-    return lzbar, lg
+    return lzbar, lg, lz
 end
 
 # ------------------------------ #
@@ -259,14 +262,14 @@ Given scalars for ♠ and zbar, return vectors of ♠' and zbar' for every
 function get_next_grid{T<:Real}(m::BCFL22C, pf::PolicyFunction,
                                 state::TimeTState{T})
     # unpack
-    ϵ1, ϵ2 = m.ϵ[:, 1], m.ϵ[:, 2]
-    lzbarp, lgp = exog_step(m, state.lzbar, ϵ1, ϵ2)
+    ϵ1, ϵ2, ϵ3 = m.ϵ[:, 1], m.ϵ[:, 2], m.ϵ[:, 3]
+    lzbarp, lgp, lzp = exog_step(m, state.lzbar, ϵ1, ϵ2, ϵ3)
 
     # build state and use pf to step ♠ forward
-    fst = FullState(state, lzbarp, lgp)
+    fst = FullState(state, lzbarp, lgp, lzp)
     l♠p = evaluate(pf, fst)
 
-    return l♠p, lzbarp, lgp
+    return l♠p, lzbarp, lgp, lzp
 end
 
 """
@@ -295,14 +298,15 @@ function get_next_grid{T<:Real}(m::BCFL22C, pf::PolicyFunction,
     l♠p = Array(Float64, J, N)
     lzbarp = similar(l♠p)
     lgp = similar(l♠p)
+    lzp = similar(l♠p)
 
     # fill in row by row by calling one state function above
     for i=1:N
-        l♠p[:, i], lzbarp[:, i], lgp[:, i] = get_next_grid(m, pf, states[i])
+        l♠p[:, i], lzbarp[:, i], lgp[:, i], lzp[:, i] = get_next_grid(m, pf, states[i])
     end
 
     # transpose before returning
-    return l♠p', lzbarp', lgp'
+    return l♠p', lzbarp', lgp', lzp'
 
 end
 
@@ -330,7 +334,7 @@ m.ϵ and then hand off to the function below
 """
 function certainty_equiv{T<:Real}(m::BCFL22C, pf::PolicyFunction,
                                   vfs::ValueFunctions, st::TimeTState{T})
-    l♠p, lzbarp, lgp = get_next_grid(m, pf, st)
+    l♠p, lzbarp, lgp, lzp = get_next_grid(m, pf, st)
     certainty_equiv(m, vfs, l♠p, lzbarp, lgp)
 end
 
@@ -524,7 +528,7 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
         # build EDS grid on ♠ and lzbar terms in regression matrix
         if mod(it, grid_skip) == 0 || it == 0
             verbose && info("Updating grid")
-            grid = get_eds_grid(Matrix(fsts)[1:capT-1, 1:2])
+            grid = get_eds_grid(Matrix(fsts)[1:capT-1, 1:3])
         end
 
         # do VFI to get approximation to value functions/certainty equiv
