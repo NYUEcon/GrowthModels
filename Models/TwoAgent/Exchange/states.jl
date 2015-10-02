@@ -15,14 +15,6 @@ type TimeTState{T} <: AbstractState{T}
     lzbar::T
 end
 
-# if contents are vectors, getindex will return a TimeTState of scalars
-Base.getindex{T<:Real}(st::TimeTState{Vector{T}}, i::Int) =
-    TimeTState(st.l♠[i], st.lzbar[i])
-
-# for easy conversion to Vector and Matrix
-Base.convert{T<:Real}(::Type{Vector}, fst::TimeTState{T}) = [fst.l♠, fst.lzbar]
-Base.convert(::Type{Matrix}, fst::TimeTState) = [fst.l♠ fst.lzbar]
-
 """
 Full state vector used by the planner to apply the policy rules.
 
@@ -50,23 +42,15 @@ end
     FullState(fill(l♠, N), fill(lzbar, N), lzbarp, lgp)
 end
 
-Base.getindex{T<:Real}(fst::FullState{Vector{T}}, i::Int) =
-    FullState(fst.l♠[i], fst.lzbar[i], fst.lzbarp[i], fst.lgp[i])
-
-Base.length(fst::FullState) = length(st.l♠)
-Base.size(fst::FullState) = (length(st.l♠), length(fieldnames(st)))
-
-# methods for converting into Vectors and Matrices
-Base.convert{T<:Real}(::Type{Vector}, fst::FullState{T}) =
-    [fst.l♠, fst.lzbar, fst.lzbarp, fst.lgp]
-
-Base.convert(::Type{Matrix}, fst::FullState) =
-    [fst.l♠ fst.lzbar fst.lzbarp fst.lgp]
-
+# --------------------------- #
+# Interface for AbstractState #
+# --------------------------- #
 
 # # Define the iterator protocol for the types
 for T in (:TimeTState, :FullState)
     @eval begin
+        Base.getindex{T<:Real}(st::$T{Vector{T}}, i::Int) =
+            $T([getfield(st, nm)[i] for nm in fieldnames(st)]...)
         Base.length(x::$T) = length(x.l♠)
         Base.size(x::$T) = (length(x.l♠), length(fieldnames(x)))
         Base.start{T<:Real}(x::$T{Vector{T}}) = 1
@@ -75,6 +59,12 @@ for T in (:TimeTState, :FullState)
         Base.eltype{T<:Real}(::$T{Vector{T}}) = $T{T}
     end
 end
+
+# for easy conversion to Vector and Matrix
+Base.convert{T<:Real}(::Type{Vector}, st::AbstractState{T}) =
+    vcat([getfield(st, nm) for nm in fieldnames(st)]...)
+Base.convert(::Type{Matrix}, st::AbstractState) =
+    hcat([getfield(st, nm) for nm in fieldnames(st)]...)
 
 # Convert a FullState to a TimeTState -- just extract first to fields
 TimeTState(fst::FullState) = TimeTState(fst.l♠, fst.lzbar)
