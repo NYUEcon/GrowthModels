@@ -1,36 +1,37 @@
+
 # ------------------------------------------------------------------- #
 # Analysis of stuff
 # ------------------------------------------------------------------- #
-using PyPlot
+# using PyPlot
 
-function plot_allocations(m::BCFL22C, allocations::Array{Float64, 2})
-    # Create Plot Object
-    fig, ax = subplots(3, 1)
-    capT = size(allocations, 2)
-    tTt = collect(range(1, capT))
+# function plot_allocations(m::BCFL22C, allocations::Array{Float64, 2})
+#     # Create Plot Object
+#     fig, ax = subplots(3, 1)
+#     capT = size(allocations, 2)
+#     tTt = collect(range(1, capT))
 
-    # Plot (a1, b2)
-    ax[1][:plot](tTt, allocations[1, :][:], label="a1")
-    ax[1][:plot](tTt, allocations[4, :][:], label="b2")
-    ax[1][:set_title]("Home Goods")
-    ax[1][:legend]()
+#     # Plot (a1, b2)
+#     ax[1][:plot](tTt, allocations[1, :][:], label="a1")
+#     ax[1][:plot](tTt, allocations[4, :][:], label="b2")
+#     ax[1][:set_title]("Home Goods")
+#     ax[1][:legend]()
 
-    # Plot (a2, b1)
-    ax[2][:plot](tTt, allocations[2, :][:], label="a2")
-    ax[2][:plot](tTt, allocations[3, :][:], label="b1")
-    ax[2][:set_title]("Foreign Goods")
-    ax[2][:legend]()
+#     # Plot (a2, b1)
+#     ax[2][:plot](tTt, allocations[2, :][:], label="a2")
+#     ax[2][:plot](tTt, allocations[3, :][:], label="b1")
+#     ax[2][:set_title]("Foreign Goods")
+#     ax[2][:legend]()
 
-    # Plot (c1, c2)
-    ax[3][:plot](tTt, allocations[5, :][:], label="c1")
-    ax[3][:plot](tTt, allocations[6, :][:], label="c2")
-    ax[3][:set_title]("Consumption")
-    ax[3][:legend]()
+#     # Plot (c1, c2)
+#     ax[3][:plot](tTt, allocations[5, :][:], label="c1")
+#     ax[3][:plot](tTt, allocations[6, :][:], label="c2")
+#     ax[3][:set_title]("Consumption")
+#     ax[3][:legend]()
 
-    fig[:tight_layout]()
+#     fig[:tight_layout]()
 
-    return fig, ax
-end
+#     return fig, ax
+# end
 
 """
 Simulate the economy and compute the allocations
@@ -86,14 +87,14 @@ function impulse_response(m::BCFL22C, pf::PolicyFunction, capT::Int)
     allocations_1, fsts_1 = simulate_allocations!(m, pf, fsts_1)
     allocations_2, fsts_2 = simulate_allocations!(m, pf, fsts_2)
 
-    # Plot allocations
-    fig_1, ax_1 = plot_allocations(m, allocations_1)
-    fig_1[:suptitle]("Impulse Response to e1")
-    show()
+    # # Plot allocations
+    # fig_1, ax_1 = plot_allocations(m, allocations_1)
+    # fig_1[:suptitle]("Impulse Response to e1")
+    # show()
 
-    fig_2, ax_2 = plot_allocations(m, allocations_2)
-    fig_2[:suptitle]("Impulse Response to e2")
-    show()
+    # fig_2, ax_2 = plot_allocations(m, allocations_2)
+    # fig_2[:suptitle]("Impulse Response to e2")
+    # show()
 
     return allocations_1, allocations_2
 end

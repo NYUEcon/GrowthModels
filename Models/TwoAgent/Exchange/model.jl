@@ -6,6 +6,36 @@ include("states.jl")
 include("util.jl")
 using .EDSUtil
 
+# ------------------- #
+# AlgorithmParameters #
+# ------------------- #
+immutable AlgorithmParameters
+    maxiter::Int
+    grid_skip::Int
+    verbose::Bool
+    print_skip::Int
+    ξ::Float64
+    maxiter_vfi::Int
+    tol_vfi::Float64
+    deg_vfi::Int
+    verbose_vfi::Bool
+    Mbar::Int
+end
+
+function AlgorithmParameters(;maxiter::Int=10_000,
+                              grid_skip::Int=5,
+                              verbose::Bool=true,
+                              print_skip::Int=1,
+                              ξ::Float64=0.05,
+                              maxiter_vfi::Int=5_000,
+                              tol_vfi::Float64=1e-8,
+                              deg_vfi::Int=3,
+                              verbose_vfi::Bool=false,
+                              Mbar::Int=100)
+    AlgorithmParameters(maxiter, grid_skip, verbose, print_skip, ξ, maxiter_vfi,
+                        tol_vfi, deg_vfi, verbose_vfi, Mbar)
+end
+
 # ---------- #
 # Agent type #
 # ---------- #
@@ -79,46 +109,52 @@ type BCFL22C
     γ::Float64
     ϵ::Matrix{Float64}
     Π::Vector{Float64}
-    ζ1::Float64
     ζ2::Float64
     ζv::Float64
+    vbar::Float64
+    ϕv::Float64
 end
 
 # TODO: check the sigma parameters
+# WARNING: The ζ1 parameter is currently unused. Just here as a leftover from
+# when we were doing
 function BCFL22C(;ρ1::Real=-1.0 , α1::Real=-9.0, β1::Real=0.999,  # EZ 1
                   η1::Real=1.0, ν1::Real=0.1,                     # production 1
-                  σ1::Real=-0.6, ω1::Real=0.1,                     # composite 1
+                  σ1::Real=0.6, ω1::Real=0.1,                    # composite 1
                   δ1::Real=0.025, ζ1::Real=0.001,                 # other 1
                   ρ2::Real=-1.0 , α2::Real=-9.0, β2::Real=0.999,  # EZ 2
                   η2::Real=1.0, ν2::Real=0.1,                     # production 2
-                  σ2::Real=-0.6, ω2::Real=0.1,                     # composite 2
+                  σ2::Real=0.6, ω2::Real=0.1,                    # composite 2
                   δ2::Real=0.025, ζ2::Real=0.001,                 # other 2
-                  ϕv::Real=0.9, ζv::Real=7.4e-2, γ::Real=0.9, nϵ::Int=4)  # exog
+                  ϕv::Real=0.975, vbar::Real=0.01^2,              # exog
+                  ζv::Real=(vbar/10)*sqrt(1-ϕv^2),
+                  γ::Real=0.9, nϵ::Int=4)
+
     agent1 = Agent(ρ1, β1, α1, η1, ν1, ω1, σ1, δ1)
     agent2 = Agent(ρ2, β2, α2, η2, ν2, ω2, σ2, δ2)
     ϵ, Π = EDSUtil.qnwgh(nϵ, 3)
-    BCFL22C(agent1, agent2, γ, ϵ, Π, ζ1, ζ2)
+    BCFL22C(agent1, agent2, γ, ϵ, Π, ζ2, ζv, vbar, ϕv)
 end
 
 Base.writemime(io::IO, ::MIME"text/plain", m::BCFL22C) =
     println(io, "BCFL model with 2 goods and 2 agents")
 
 
-@inline function exog_step(m::BCFL22C, lzbar, vz, ϵ1, ϵ2, ϵ3)
-    lzbarp = (2*m.γ - 1)*lzbar .+ (m.ζ1*ϵ1 - m.ζ2*ϵ2)
-    lgp = (1-m.γ)*lzbar .+ m.ζ1*ϵ1
-    vp = (1 - m.ϕv)*m.ζ1 + m.ϕv*vz + m.ζv*ϵ3
+@inline function exog_step(m::BCFL22C, lzbar, v, ϵ1, ϵ2, ϵ3)
+    lzbarp = (2*m.γ - 1)*lzbar .+ (sqrt(v)*ϵ1 - m.ζ2*ϵ2)
+    lgp = (1-m.γ)*lzbar .+ sqrt(v)*ϵ1
+    vp = max(1e-8, (1 - m.ϕv)*m.vbar + m.ϕv*v .+ m.ζv*ϵ3)
     lzbarp, lgp, vp
 end
 
 function simulate_exog(m::BCFL22C, capT::Int=10000, seed::Int=1)
     # set random seed, then hand of to real method
     srand(seed)
-    simulate_exog(m, randn(capT), randn(capT))
+    simulate_exog(m, randn(capT), randn(capT), randn(capT))
 end
 
 # This is `simulate_exog` called in IRF
-function simulate_exog(m::BCFL22C, ϵ1::Vector, ϵ2::Vector)
+function simulate_exog(m::BCFL22C, ϵ1::Vector, ϵ2::Vector, ϵ3::Vector)
 
     capT = length(ϵ1)
     capT == length(ϵ2) || error("ϵ1 and ϵ2 should be the same length")
@@ -126,13 +162,15 @@ function simulate_exog(m::BCFL22C, ϵ1::Vector, ϵ2::Vector)
     # Allocate Space
     lzbar = zeros(capT)
     lg = zeros(capT)
-    lz = zeros(capT)
+    v = zeros(capT)
+    v[1] = m.vbar
+    # TODO: need to set initial level of v.. Probably should be vbar
 
     @inbounds for t=2:capT
-        lzbar[t], lg[t], lz[t] = exog_step(m, lzbar[t-1], ϵ1[t], ϵ2[t])
+        lzbar[t], lg[t], v[t] = exog_step(m, lzbar[t-1], v[t-1], ϵ1[t], ϵ2[t], ϵ3[t])
     end
 
-    return lzbar, lg, lz
+    return lzbar, lg, v
 end
 
 # ------------------------------ #
@@ -218,7 +256,7 @@ function get_allocation{T<:Real}(m::BCFL22C, st::TimeTState{T})
 end
 
 get_allocation{T<:Real}(m::BCFL22C, fst::FullState{T}) =
-    get_allocation(m, TimeTState(fst.l♠, fst.lzbar))
+    get_allocation(m, TimeTState(fst.l♠, fst.lzbar, fst.v))
 
 # ------------------- #
 # PolicyFunction type #
@@ -263,13 +301,13 @@ function get_next_grid{T<:Real}(m::BCFL22C, pf::PolicyFunction,
                                 state::TimeTState{T})
     # unpack
     ϵ1, ϵ2, ϵ3 = m.ϵ[:, 1], m.ϵ[:, 2], m.ϵ[:, 3]
-    lzbarp, lgp, lzp = exog_step(m, state.lzbar, ϵ1, ϵ2, ϵ3)
+    lzbarp, lgp, vp = exog_step(m, state.lzbar, state.v, ϵ1, ϵ2, ϵ3)
 
     # build state and use pf to step ♠ forward
-    fst = FullState(state, lzbarp, lgp, lzp)
+    fst = FullState(state, lzbarp, lgp, vp)
     l♠p = evaluate(pf, fst)
 
-    return l♠p, lzbarp, lgp, lzp
+    return l♠p, lzbarp, lgp, vp
 end
 
 """
@@ -298,15 +336,15 @@ function get_next_grid{T<:Real}(m::BCFL22C, pf::PolicyFunction,
     l♠p = Array(Float64, J, N)
     lzbarp = similar(l♠p)
     lgp = similar(l♠p)
-    lzp = similar(l♠p)
+    vp = similar(l♠p)
 
     # fill in row by row by calling one state function above
     for i=1:N
-        l♠p[:, i], lzbarp[:, i], lgp[:, i], lzp[:, i] = get_next_grid(m, pf, states[i])
+        l♠p[:, i], lzbarp[:, i], lgp[:, i], vp[:, i] = get_next_grid(m, pf, states[i])
     end
 
     # transpose before returning
-    return l♠p', lzbarp', lgp', lzp'
+    return l♠p', lzbarp', lgp', vp'
 
 end
 
@@ -334,8 +372,8 @@ m.ϵ and then hand off to the function below
 """
 function certainty_equiv{T<:Real}(m::BCFL22C, pf::PolicyFunction,
                                   vfs::ValueFunctions, st::TimeTState{T})
-    l♠p, lzbarp, lgp, lzp = get_next_grid(m, pf, st)
-    certainty_equiv(m, vfs, l♠p, lzbarp, lgp)
+    l♠p, lzbarp, lgp, vp = get_next_grid(m, pf, st)
+    certainty_equiv(m, vfs, l♠p, lzbarp, vp, lgp)
 end
 
 """
@@ -343,7 +381,7 @@ This method assumes you are passing (l♠', zbar', g') for all the integration
 nodes in m.ϵ
 """
 function certainty_equiv(m::BCFL22C, vfs::ValueFunctions, l♠p::Vector,
-                         lzbarp::Vector, lgp::Vector)
+                         lzbarp::Vector, vp::Vector, lgp::Vector)
     J = length(m.Π)
     if J != length(l♠p) || J != length(lzbarp) || J != length(lgp)
         error("l♠p, lzbarp and lgp should have $J elements")
@@ -351,7 +389,13 @@ function certainty_equiv(m::BCFL22C, vfs::ValueFunctions, l♠p::Vector,
 
     # Compute value functions and evaluate expectations that form certainty
     # equiv
-    VF = value_funcs(vfs, TimeTState(l♠p, lzbarp))
+    VF = value_funcs(vfs, TimeTState(l♠p, lzbarp, vp))
+    if any(VF .< 0)
+        @show VF
+
+        # Bite me VF
+        VF = max(VF, 1e-8)
+    end
     μ1 = dot(m.Π, (exp(lgp).*VF[:, 1]).^(m.agent1.α))^(1.0/m.agent1.α)
     μ2 = dot(m.Π, (exp(lgp).*VF[:, 2]).^(m.agent2.α))^(1.0/m.agent2.α)
     μ1, μ2
@@ -363,13 +407,14 @@ end
 # ----------------------- #
 # VFI for post simulation #
 # ----------------------- #
-function vfi_from_simulation(m::BCFL22C, pf::PolicyFunction, grid::Matrix{Float64};
-                             deg::Int=3, tol=1e-8, maxit::Int=5000)
+function vfi_from_simulation(m::BCFL22C, pf::PolicyFunction,
+                             grid::Matrix{Float64}, options::AlgorithmParameters)
     # unpack
     ρ1, β1, α1, η1, ν1, ω1, σ1, δ1 = _unpack(m.agent1)
     ρ2, β2, α2, η2, ν2, ω2, σ2, δ2 = _unpack(m.agent2)
-    st = TimeTState(grid[:, 1], grid[:, 2])
+    st = TimeTState(grid[:, 1], grid[:, 2], grid[:, 3])
     Ngrid = length(st)
+    deg, tol, maxit = options.deg_vfi, options.tol_vfi, options.maxiter_vfi
 
     # get consumption on the grid
     cs = [get_allocation(m, st_t)[5:6] for st_t in st]
@@ -385,7 +430,7 @@ function vfi_from_simulation(m::BCFL22C, pf::PolicyFunction, grid::Matrix{Float6
     vfs = ValueFunctions{deg}(coefs)
 
     # advance grid one time step using integration nodes m.ϵ
-    l♠p, lzbarp, lgp = get_next_grid(m, pf, st)
+    l♠p, lzbarp, lgp, vp = get_next_grid(m, pf, st)
 
     # iteration manager stuff + allocate for value functions
     err = 10.0
@@ -399,7 +444,7 @@ function vfi_from_simulation(m::BCFL22C, pf::PolicyFunction, grid::Matrix{Float6
         for i=1:Ngrid
             # compute certainty equivalents
             μ1, μ2 = certainty_equiv(m, vfs, l♠p[i, :][:], lzbarp[i, :][:],
-                                     lgp[i, :][:])
+                                     vp[i, :][:], lgp[i, :][:])
 
             # apply backward step to get U_{i,t}
             U1[i] = ((1-β1)*c1[i]^ρ1 + β1*μ1^ρ1)^(1/ρ1)
@@ -416,6 +461,15 @@ function vfi_from_simulation(m::BCFL22C, pf::PolicyFunction, grid::Matrix{Float6
         # update cache of previous U_i
         copy!(U1_old, U1)
         copy!(U2_old, U2)
+
+        if options.verbose_vfi && mod(it, 5) == 0
+            @show it, err
+        end
+
+    end
+
+    if it == maxit
+        warn("VFI failed to converge. err is $err")
     end
 
     vfs
@@ -477,15 +531,24 @@ end
 
 function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
                       lg::Vector{Float64}=simulate_exog(m)[2],
-                      pf::PolicyFunction{1}=PolicyFunction{1}([0.0, 0.95, -0.95, 0.0, 0.0]);
-                      maxiter::Int=10_000, grid_skip::Int=5,
-                      verbose::Bool=true, print_skip::Int=1,
-                      ξ::Float64=0.05)
+                      v::Vector{Float64}=simulate_exog(m)[3],
+                      pf::PolicyFunction{1}=PolicyFunction{1}([0.0,   # constant
+                                                               0.95,  # lspade
+                                                               -0.95, # lzbar
+                                                               0.0,   # v
+                                                               0.0,   # lzbarp
+                                                               0.0,   # vp
+                                                               0.0]); # gp
+                      kwargs...)
     # Make sure we are working with the endowment economy
     if abs(m.agent1.η-1.0) > 1e-14 || abs(m.agent2.η - 1.0) > 1e-14
         msg = "Solution only implemented for endowment economy (η1=η2=1.0)"
         error(msg)
     end
+
+    # handle options
+    options = AlgorithmParameters(;kwargs...)
+    # options = AlgorithmParameters()
 
     # unpack
     ρ1, β1, α1, η1, ν1, ω1, σ1, δ1 = _unpack(m.agent1)
@@ -499,7 +562,7 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
     Π = m.Π
 
     # Iteration management stuff
-    tol = 1e-4*ξ
+    tol = 1e-4*options.ξ
     dist = 100.0
     it = 0
 
@@ -516,23 +579,26 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
     # NOTE: I pad the last elements of time t+1 exog states with a NaN because
     #       we need the full capT+1 length time series of the time t states
     #       in order to fill in the allocation during the simulation.
-    fsts = FullState(l♠, lzbar, [lzbar[2:capT+1]; NaN], [lg[2:capT+1]; NaN])
+    fsts = FullState(l♠, lzbar, v,  # today's states
+                    [lzbar[2:capT+1]; NaN],
+                    [v[2:capT+1]; NaN],
+                    [lg[2:capT+1]; NaN])
 
     # core algorithm
-    while dist > tol && it < maxiter
+    while dist > tol && it < options.maxiter
         start_time = time()
 
         # do simulation. Updates ♠, c1, c2
         do_simulation!(m, pf, fsts, c1, c2)
 
         # build EDS grid on ♠ and lzbar terms in regression matrix
-        if mod(it, grid_skip) == 0 || it == 0
-            verbose && info("Updating grid")
-            grid = get_eds_grid(Matrix(fsts)[1:capT-1, 1:3])
+        if mod(it, options.grid_skip) == 0 || it == 0
+            options.verbose && info("Updating grid")
+            grid = get_eds_grid(Matrix(fsts)[1:capT-1, 1:3]; Mbar=options.Mbar)
         end
 
         # do VFI to get approximation to value functions/certainty equiv
-        vfs = vfi_from_simulation(m, pf, grid; deg=3, tol=1e-8, maxit=5000)
+        vfs = vfi_from_simulation(m, pf, grid, options)
 
         # update LHS
         eval_euler_eqn!(m, pf, vfs, fsts, c1, c2, LHS)
@@ -544,11 +610,11 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
         # update policy function
         X = complete_polynomial(Matrix(fsts)[1:capT-1, :], 1)
         κ_hat = X \ LHS
-        κ = ξ*κ_hat + (1-ξ)*pf.coefs
+        κ = options.ξ*κ_hat + (1-options.ξ)*pf.coefs
         pf = PolicyFunction{1}(κ)
 
         it += 1
-        if verbose && mod(it, print_skip) == 0
+        if options.verbose && mod(it, options.print_skip) == 0
             tot_time = time() - start_time
             @printf "Iteration %i, dist %2.5e, time %5.5e\n" it dist tot_time
         end
@@ -560,11 +626,26 @@ end
 
 function main()
     m = BCFL22C()
-    lzbar, lg = simulate_exog(m)
-    κ = [-4.594267427095823e-7,0.9999976514132554,1.8822879898974099,-1.8874374369713394,2.9809481869877624e-7]
+    lzbar, lg, v = simulate_exog(m)
+    # κ = [-4.594267427095823e-7,  # contstant
+    #      0.9999976514132554,     # l♠
+    #      1.8822879898974099,     # zbar
+    #      0.0,                    # v
+    #      -1.8874374369713394,    # lzbarp
+    #      0.0,                    # vp
+    #      2.9809481869877624e-7   # lgp
+    #      ]
+    κ = [0.0,  # contstant
+         1.0,     # l♠
+         0.95,     # zbar
+         0.0,                    # v
+         -0.95,    # lzbarp
+         0.0,                    # vp
+         0.0]   # lgp
+
     pf = PolicyFunction{1}(κ)
     ξ = 0.05
-    fsts, pf = linear_coefs(m, lzbar, lg, pf, maxiter=500)
+    fsts, pf = linear_coefs(m, lzbar, lg, v, pf, maxiter=500)
     m, fsts, pf
 end
 
@@ -574,6 +655,8 @@ end  # module
 
 
 #=
+main()
+
 function foobar(m::BCFL22C, a1::Real, zbar::Real)
     a2 = 1.0 - a1
 
@@ -604,4 +687,5 @@ end
 function foobar(m::BCFL22C, a1_grid::Vector, zbar_grid::Vector)
     grid = gridmake(a1_grid, zbar_grid)
 end
+ er
 =#
