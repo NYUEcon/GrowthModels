@@ -9,7 +9,6 @@ m = BCFL22C()
 deg = 3
 sim_data = X[1:capT-1, 2:end]
 l♠, κ = main()
-
 fstv = FullState(1.0, 2.0, 3.0, 5.0)
 fst = FullState(κ, κ, κ, κ)
 asarray(fst)

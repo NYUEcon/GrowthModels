@@ -20,6 +20,7 @@ immutable AlgorithmParameters
     deg_vfi::Int
     verbose_vfi::Bool
     Mbar::Int
+    max_deg::Int
 end
 
 function AlgorithmParameters(;maxiter::Int=10_000,
@@ -31,9 +32,10 @@ function AlgorithmParameters(;maxiter::Int=10_000,
                               tol_vfi::Float64=1e-8,
                               deg_vfi::Int=3,
                               verbose_vfi::Bool=false,
-                              Mbar::Int=100)
+                              Mbar::Int=100,
+                              max_deg::Int=3)
     AlgorithmParameters(maxiter, grid_skip, verbose, print_skip, ξ, maxiter_vfi,
-                        tol_vfi, deg_vfi, verbose_vfi, Mbar)
+                        tol_vfi, deg_vfi, verbose_vfi, Mbar, max_deg)
 end
 
 # ---------- #
@@ -412,7 +414,7 @@ function vfi_from_simulation(m::BCFL22C, pf::PolicyFunction,
     # unpack
     ρ1, β1, α1, η1, ν1, ω1, σ1, δ1 = _unpack(m.agent1)
     ρ2, β2, α2, η2, ν2, ω2, σ2, δ2 = _unpack(m.agent2)
-    st = TimeTState(grid[:, 1], grid[:, 2], grid[:, 3])
+    st = TimeTState([grid[:, i] for i in 1:size(grid, 2)]...)
     Ngrid = length(st)
     deg, tol, maxit = options.deg_vfi, options.tol_vfi, options.maxiter_vfi
 
@@ -480,7 +482,7 @@ end
 # ------------------------- #
 
 #=
-now construct LHS of regression using the euler equation:
+From simulated data now construct LHS of regression using the euler equation:
 
 ♠' = ♠ * beta_1/beta_2 * g'^(α1-α2) * (c_1'/c_1)^(ρ_1-1) *
      (c_2'/c_2)^(1-ρ_2) * (U_1'/μ_1)^(α_1 - ρ_1) *(U_2'/μ_2)^(ρ_2 - α_2)
@@ -511,6 +513,32 @@ function eval_euler_eqn!(m::BCFL22C, pf::PolicyFunction, vfs::ValueFunctions,
 end
 
 """
+On the EDS grid, evaluate the LHS of regression using the Euler equation
+"""
+function eval_euler_eqn(m::BCFL22C, pf::PolicyFunction, vfs::ValueFunctions,
+                        sts::TimeTState, c1::Vector, c2::Vector)
+    ρ1, β1, α1, η1, ν1, ω1, σ1, δ1 = _unpack(m.agent1)
+    ρ2, β2, α2, η2, ν2, ω2, σ2, δ2 = _unpack(m.agent2)
+
+    l♠p, lzbarp, lgp, vp = get_next_grid(m, pf, sts)
+    LHS = similar(c1)
+
+    for t=1:length(c1)
+        # get μ_t based on time t state
+        μ1, μ2 = certainty_equiv(m, pf, vfs, sts[t])
+
+        # get U_{t+1} from next period state
+        U1p, U2p = value_funcs(vfs, TimeTState())
+
+        # now package up the LHS of the Euler eqn, which is ♠'
+        LHS[t] = Nothing  # TODO
+    end
+
+    # take logs of LHS so it is log♠'
+    map!(log, LHS)
+end
+
+"""
 Simulate ♠ forward and solve for c1, c2 along the way. Need the cs so I can
 evaluate the euler equation later
 """
@@ -527,7 +555,6 @@ function do_simulation!(m::BCFL22C, pf::PolicyFunction, fsts::FullState,
         c1[t], c2[t] = get_allocation(m, fst)[5:6]
     end
 end
-
 
 function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
                       lg::Vector{Float64}=simulate_exog(m)[2],
@@ -620,12 +647,78 @@ function linear_coefs(m::BCFL22C, lzbar::Vector{Float64}=simulate_exog(m)[1],
         end
     end
 
-    fsts, pf
+    # compute grid one final time with the final time series
+    full_grid = get_eds_grid(Matrix(fsts)[1:capT-1, :]; Mbar=options.Mbar)
+    fsts, pf, full_grid
+end
 
+function solve_nonlinear(m::BCFL22C, pf_lin::PolicyFunction{1},
+                         full_grid::Matrix, options::AlgorithmParameters)
+    # prep to store policy functions for each degree
+    solns = Dict{Int,PolicyFunction}()
+    Nlin_coefs = length(pf_lin.coefs)
+
+    # get smaller grid for VFI loop
+    grid = full_grid[:, 1:3]
+
+    # build TimeTState variables based on grid and compute consumption on grid
+    fsts = FullState([full_grid[:, i] for i in 1:size(grid, 2)]...)
+    cs = [get_allocation(m, st_t)[5:6] for st_t in fsts]
+    c1 = map(x->getindex(x, 1), cs)
+    c2 = map(x->getindex(x, 2), cs)
+
+    # allocate memory for the LHS
+    LHS = similar(c1)
+
+    # main loop
+    for d in 1:options.max_deg
+        # initialize coefs to be equal to the linear coefs. For linear guess
+        # here use the linear coefficients passed in to this routine. All higher
+        # degrees use the linear coefficients computed here.
+        κ = zeros(n_complete(Nlin_coefs-1, d))
+        κ[1:Nlin_coefs] = d == 1 ? pf_lin.coefs : solns[1].coefs
+        pf = PolicyFunction{deg}(κ)
+
+        # TODO: as an efficiency boost we can precompute the basis matrix on
+        #       the grid and pass it around. For now I've just re-used code
+        #       from above that doesn't do that b/c the nodes change.
+        # X_d = complete_polynomial(grid, d)
+        err = 1.0e10
+
+        # TODO: this loop is copy/patse from above. We should be able to
+        #       abstract it out and not repeat
+        while err > options.tol
+            # do VFI to get approximation to value functions/certainty equiv
+            vfs = vfi_from_simulation(m, pf, grid, options)
+
+            # update LHS
+            eval_euler_eqn!(m, pf, vfs, fsts, c1, c2, LHS)
+
+            # compute dist, copy cache
+            dist = mean(abs(1.0 - exp(fsts.l♠ - l♠_old)))
+            copy!(l♠_old, fsts.l♠)
+
+            # update policy function
+            X = complete_polynomial(Matrix(fsts)[1:capT-1, :], 1)
+            κ_hat = X \ LHS
+            κ = options.ξ*κ_hat + (1-options.ξ)*pf.coefs
+            pf = PolicyFunction{deg}(κ)
+
+            it += 1
+            if options.verbose && mod(it, options.print_skip) == 0
+                tot_time = time() - start_time
+                @printf("Degree %i, Iteration %i, dist %2.5e, time %5.5e\n",
+                        d, it, dist, tot_time)
+            end
+        end
+
+        solns[d] = pf
+    end
+    return solns
 end
 
 function main()
-    m = BCFL22C()
+    m = BCFL22C(;ζv=0.0)
     lzbar, lg, v = simulate_exog(m)
     # κ = [-4.594267427095823e-7,  # contstant
     #      0.9999976514132554,     # l♠
@@ -645,7 +738,7 @@ function main()
 
     pf = PolicyFunction{1}(κ)
     ξ = 0.05
-    fsts, pf = linear_coefs(m, lzbar, lg, v, pf, maxiter=500)
+    fsts, pf, full_grid = linear_coefs(m, lzbar, lg, v, pf, maxiter=500)
     m, fsts, pf
 end
 
