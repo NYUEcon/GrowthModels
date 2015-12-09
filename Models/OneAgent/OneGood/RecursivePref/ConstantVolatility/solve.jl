@@ -1,149 +1,135 @@
-module X
+module BFZ
 
-using CompEcon
-include("../../ModelAbstraction.jl")
-using .ModelAbstraction
+using CompEcon: qnwnorm
+using Interpolations
 
-immutable BFZStateSpace <: AbstractStateSpace{2}
-    k::EndogenousState{Float64}
-    x::ExogenousState{Float64}
-    g::ExogenousState{Float64}
-    grid::Matrix{Float64}
-    grid_transpose::Matrix{Float64}
-    basis::Basis{2}
-    basis_struct::BasisStructure{Direct}
+type BFZModel
+    A::Float64
+    B::Float64
+    vbar::Float64
+    lgbar::Float64
+    ρ::Float64
+    α::Float64
+    β::Float64
+    η::Float64
+    ν::Float64
+    δ::Float64
+    ϵ::Vector{Float64}
+    Π::Vector{Float64}
+    x::AbstractVector
+    k::AbstractVector
+    xp::Matrix{Float64}
+    gp::Matrix{Float64}
 end
 
-immutable BFZModel
-    agent::EpsteinZinAgent
-    producer::CESProducer
-    exog::ConstantVolatility
-    state_space::BFZStateSpace
-end
+function BFZModel(;ρ=-1.0, α=-9.0, β=0.99, η=1/3, ν=0.1, δ=0.025, lgbar=0.004,
+                   A=0.0, B=1.0, vbar=0.015^2, nk=35, nx=15, nϵ1=5)
 
-function BFZcv(;ρ::Real=-1, α::Real=-9, β::Real=0.99,
-              η::Real=1/3, ν::Float64=0.1, δ::Real=0.025,
-              lgbar::Real=0.004, A::Real=0., B::Real=1., vbar::Real=0.015^2,
-              nk::Int=20, nx::Int=8, nϵ1::Int=3)
-    # (ρ, α, β, η, ν, δ, lgbar, A, B, vbar, nk, nx, nϵ1) = (-1., -9., .99, .33, .1, .025, .004, 0., 1., .015^2, 20, 8, 9)
-    # Create the Consumer
-    BFZagent = EpsteinZinAgent(ρ, α, β)
+    # quadrature weights and nodes
+    ϵ, Π = qnwnorm(nϵ1, 0.0, 1.0)
 
-    # Create means of Production
-    BFZprod = CESProducer(η, ν, δ)
+    # grids for x and k
+    x = linspace(-0.05, 0.05, nx)
+    k = linspace(15.0, 30.0, nk)
 
-    # Create Exogenous Process
-    exog = ConstantVolatility(A, B, vbar, nϵ1)
+    # grids for x_{t+1} and g_{t+1} -- apply law of motion
+    xp = Array(Float64, nϵ1, nx)
+    gp = Array(Float64, nϵ1, nx)
 
-    #
-    # Create the State Space
-    #
-    # First Create Basis
-    basis = Basis(SplineParams(collect(linspace(15.0, 30.0, nk)), 0, 3),
-                  SplineParams(collect(linspace(-.05, .05, nx)), 0, 1))
-    basis_struc = BasisStructure(basis, Direct())
-
-    # Get the implied grids
-    grid, (kgrid, xgrid) = nodes(basis)
-    grid_transpose = grid'
-    ggrid = exp(lgbar + xgrid)
-
-    xpgrid = Array(Float64, nϵ1, nx)
-    gpgrid = Array(Float64, nϵ1, nx)
     for i=1:nx
-        xpgrid[:, i] = step(exog, xgrid[i], exog.ϵ)
-        gpgrid[:, i] = exp(lgbar + xpgrid[:, i])
+        _x = x[i]
+        for j=1:nϵ1
+            xp[j, i] = A*_x + B*sqrt(vbar)*ϵ[j]
+            gp[j, i] = exp(lgbar + xp[j, i])
+        end
+
     end
 
-    # Create the states
-    kstate = EndogenousState(kgrid)
-    xstate = ExogenousState(xgrid, xpgrid)
-    gstate = ExogenousState(ggrid, gpgrid)
-
-    # Finally create space
-    statespace = BFZStateSpace(kstate, xstate, gstate, grid, grid_transpose,
-                               basis, basis_struc)
-
-    return BFZModel(BFZagent, BFZprod, exog, statespace)
+    BFZModel(A, B, vbar, lgbar, ρ, α, β, η, ν, δ, ϵ, Π, x, k, xp, gp)
 end
 
+## Helpful functions
+_Y(m::BFZModel, k) = (m.η .* k.^m.ν + (1 - m.η)).^(1/m.ν)
 
-function envelope_method(bfz::BFZModel; maxiter=500, tol=1e-4)
+"""
+Initializes the guess of the value function on the grid to be a small fraction
+of consuming production each period. Use the same value for all x
+"""
+function initialize(m::BFZModel)
+    JT = (((1-m.β) * (_Y(m, m.k) + (1-m.δ)*m.k).^(m.ρ)).^(1/m.ρ)) ./ 500
+    Jvals = repeat(JT, inner=[1, length(m.x)])
+    itp = scale(interpolate(Jvals, BSpline(Quadratic(Line())), OnGrid()),
+                m.k, m.x)
+    Jvals, itp
+end
 
-    # Useful parameters
-    dist = 10.
-    iter = 1
-    (ρ, α, β) = bfz.agent.ρ, bfz.agent.α, bfz.agent.β
-    (η, ν, δ) = bfz.producer.η, bfz.producer.ν, bfz.producer.δ
-    ρinv = 1./ρ
+function envelope_method(m::BFZModel;maxiter=500, tol=1e-4)
+    # simplify notation
+    β, δ, ρ, η, ν, α = m.β, m.δ, m.ρ, m.η, m.ν, m.α
+    nshocks = length(m.ϵ)
+    nk, nx = length(m.k), length(m.x)
 
-    # Useful function
-    _Y(k) = _production(bfz.producer, k)
-
-    # Pull information out of type
-    kgrid = bfz.state_space.k.grid
-    xgrid = bfz.state_space.x.grid
-    stategrid = bfz.state_space.grid
-    nk, nx = length(kgrid), length(xgrid)
-
-    # Initialize Value Function and Interpolant
-    JT = (((1 - β) * (_Y(stategrid[:, 1])+(1 - δ)*stategrid[:, 1]).^(ρ)).^(ρinv)) ./ 500
-    Jvals = repeat(JT, inner=[1, nx])
-    Jupd = copy(Jvals)
-    Jcoeffs = funfitxy(bfz.state_space.basis, bfz.state_space.basis_struct)
+    # initialize interpolant for value function
+    Jvals, itp = initialize(m)
     χpolicy = Array(Float64, nk, nx)
+    Jupd = similar(χpolicy)
+
+    # intermediate helper variables
+    err = 100.0
+    iter = 0
+    start_time = time()
 
     # Solve this bad boy
-    while dist>tol && iter<maxiter
+    while err>tol && iter<maxiter
 
         iter += 1
         # Given the current vf, find the χ that solves the env condition
-        for xind=1:nx
+        for i_x=1:nx
             # Pull out current x
-            xt = xgrid[xind]
+            xt = m.x[i_x]
 
-            # Create a 1 dimensional interpolant so I can take derivative
-            Jvalsi = Jvals[:, xind]
-            Jkspl = Spline1D(kgrid, Jvalsi, k=1, bc="nearest", s=0.0)
-
-            for kind=1:nk
+            for i_k=1:nk
                 # Pull out current k
-                kt = kgrid[kind]
+                kt = m.k[i_k]
 
-                # Get the pieces that we care about
-                yt = _Y(kt)
-                dJ_k = derivative(Jkspl, kt)
-                Jt = evaluate(Jspl, kt, xt)
+                yt = _Y(m, kt)  # production
+
+                dJ_k = gradient(itp, kt, xt)[1]  # evaluate dJ/dk
+                dJ_k = dJ_k < 1e-12 ? 0. : dJ_k
+
+                Jt = itp[kt, xt] # evaluate J
+
+                # use envelope and budget constraint to get c and χ, then save χ
+                # in policy matrix
                 ct = (dJ_k/((1-β)*Jt^(1-ρ)*(yt^(1-ν)*η*kt^(ν-1)+1-δ)))^(1./(ρ-1))
                 χt = yt + (1 - δ)*kt - ct
-                if χt < 0
-                    warn("Negative chi")
-                end
-                χpolicy[kind, xind] = χt
+                χpolicy[i_k, i_x] = χt
+
+                # calculate the certainty equivalent
                 expterm = 0.
-
-                for shockind=1:nshocks
-                    xtp1 = xpgrid[shockind, xind]
-                    gtp1 = gpgrid[shockind, xind]
-                    jtp1 = evaluate(Jspl, χt/gtp1, xtp1)
-                    expterm += (jtp1 * gtp1)^α * Π[shockind]
+                for i_eps=1:nshocks
+                    xp = m.xp[i_eps, i_x]
+                    gp = m.gp[i_eps, i_x]
+                    jp = itp[χt/gp, xp]
+                    expterm += m.Π[i_eps] * (jp * gp)^α
                 end
-                μ = expterm^αinv
+                μ = expterm^(1/α)
 
-                Jupd[kind, xind] = ((1 - β)*ct^ρ + β*μ^ρ)^(ρinv)
+                # evaluate value function
+                Jupd[i_k, i_x] = ((1 - β)*ct^ρ + β*μ^ρ)^(1/ρ)
 
             end
         end
 
-        dist = maxabs(Jvals - Jupd)
+        err = maxabs(Jvals - Jupd)
         copy!(Jvals, Jupd)
-        Jspl = Spline2D(kgrid, xgrid, Jvals; kx=1, ky=1, s=0.0)
-        @show iter, dist
+        itp = scale(interpolate(Jupd, BSpline(Quadratic(Line())), OnGrid()),
+                    m.k, m.x)
+        @show iter, err, time() - start_time
 
     end
 
-    return Jvals, χpolicy
+    return itp
 end
 
-
-end  # End Module
+end  # module
